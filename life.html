@@ -120,7 +120,6 @@
         }
 
         async function initApp() {
-            // Safety: If geolocation or API takes too long, unlock the app anyway
             const fallbackTimer = setTimeout(() => {
                 if (state.loading) {
                     showToast("GPS taking too long. Loading default grid.");
@@ -199,10 +198,10 @@
             }
         }
 
-        function handleNavigation() {
-            if (!state.selectedHospital) return;
-            const h = state.selectedHospital;
-            const url = `https://www.google.com/maps/dir/?api=1&destination=${h.lat},${h.lng}&travelmode=driving`;
+        function handleNavigation(h) {
+            const hospital = h || state.selectedHospital;
+            if (!hospital) return;
+            const url = `https://www.google.com/maps/dir/?api=1&destination=${hospital.lat},${hospital.lng}&travelmode=driving`;
             window.open(url, '_blank');
         }
 
@@ -228,9 +227,13 @@
         }
 
         function HomeView() {
+            const query = state.searchQuery.toLowerCase();
             const filtered = state.hospitals.filter(h => 
-                !state.searchQuery || h.name.toLowerCase().includes(state.searchQuery.toLowerCase()) || 
-                h.specialty.toLowerCase().includes(state.searchQuery.toLowerCase())
+                !query || 
+                h.name.toLowerCase().includes(query) || 
+                h.specialty.toLowerCase().includes(query) ||
+                (query.includes('heart') && h.specialty.toLowerCase().includes('cardiology')) ||
+                (query.includes('fever') && h.specialty.toLowerCase().includes('primary'))
             );
 
             return `
@@ -244,6 +247,7 @@
                                 type="text" 
                                 placeholder="Heart, Fever, Orthopedic..." 
                                 class="w-full pl-14 pr-5 py-5 bg-slate-50 rounded-[2rem] font-bold text-sm focus:outline-none border-none placeholder-slate-300"
+                                value="${state.searchQuery}"
                                 oninput="setState({searchQuery: this.value})"
                             />
                         </div>
@@ -271,21 +275,35 @@
                             <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Matched Centers (By Distance)</h3>
                             <span class="text-[10px] font-bold text-blue-600">${filtered.length} Centers</span>
                         </div>
+                        
+                        <!-- Emergency SOS Quick Access -->
+                        <div class="bg-red-50 p-4 rounded-3xl border border-red-100 flex items-center justify-between">
+                            <p class="text-[11px] font-black text-red-600 uppercase tracking-wider">National Emergency Helpline</p>
+                            <a href="tel:108" class="px-4 py-2 bg-red-600 text-white rounded-xl font-bold text-[10px] flex items-center gap-2 shadow-lg active:scale-95 transition-all">
+                                <i data-lucide="phone" class="w-3 h-3 fill-current"></i> CALL 108
+                            </a>
+                        </div>
+
                         ${filtered.length > 0 ? filtered.map(h => `
-                            <div onclick="setState({selectedHospital: ${JSON.stringify(h).replace(/"/g, '&quot;')}, activeTab: 'map'})" class="bg-white p-5 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col gap-4 active:scale-95 transition-all">
+                            <div onclick="setState({selectedHospital: ${JSON.stringify(h).replace(/"/g, '&quot;')}, activeTab: 'map'})" class="bg-white p-5 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col gap-4 active:scale-95 transition-all cursor-pointer">
                                 <div class="flex justify-between items-start">
                                     <div class="flex items-center gap-3">
                                         <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
                                             <i data-lucide="hospital" class="w-6 h-6"></i>
                                         </div>
-                                        <div class="max-w-[160px]">
+                                        <div class="max-w-[140px]">
                                             <h4 class="font-black text-slate-900 text-sm tracking-tight truncate">${h.name}</h4>
                                             <p class="text-[9px] font-bold text-blue-500 uppercase">${h.distance.toFixed(2)} km away • ${h.specialty}</p>
                                         </div>
                                     </div>
-                                    <div class="text-right">
-                                        <p class="text-xs font-black text-green-600">₹${h.cost}</p>
-                                        <p class="text-[8px] font-bold text-slate-400 uppercase">Consultation</p>
+                                    <div class="flex flex-col items-end gap-2">
+                                        <a href="tel:108" onclick="event.stopPropagation()" class="p-2.5 bg-red-50 text-red-600 rounded-xl border border-red-100 active:scale-90 transition-transform">
+                                            <i data-lucide="phone" class="w-4 h-4"></i>
+                                        </a>
+                                        <div class="text-right">
+                                            <p class="text-xs font-black text-green-600">₹${h.cost}</p>
+                                            <p class="text-[8px] font-bold text-slate-400 uppercase">Consult</p>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="flex gap-2 border-t border-slate-50 pt-3">
@@ -297,19 +315,9 @@
                         `).join('') : `
                             <div class="py-12 text-center opacity-30">
                                 <i data-lucide="search-x" class="mx-auto w-12 h-12 mb-2"></i>
-                                <p class="text-xs font-black uppercase tracking-widest">No centers found nearby</p>
+                                <p class="text-xs font-black uppercase">No centers found nearby</p>
                             </div>
                         `}
-                    </div>
-
-                    <div class="bg-red-600 p-6 rounded-[2.5rem] text-white flex justify-between items-center shadow-xl shadow-red-500/30">
-                        <div>
-                            <p class="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Panic SOS</p>
-                            <h3 class="text-2xl font-black italic tracking-tighter uppercase leading-none">Call 108</h3>
-                        </div>
-                        <a href="tel:108" class="w-16 h-16 bg-white rounded-[1.8rem] flex items-center justify-center text-red-600 shadow-xl active:scale-90 transition-transform">
-                            <i data-lucide="phone" class="w-8 h-8 fill-current"></i>
-                        </a>
                     </div>
                 </div>
             `;
@@ -325,9 +333,11 @@
 
             let route = '';
             if (state.selectedHospital) {
-                // Approximate visual positioning
-                const hx = 50 + (state.selectedHospital.lng - state.location.lng) * 5000;
-                const hy = 50 + (state.location.lat - state.selectedHospital.lat) * 5000;
+                // Calculation for SVG space: 1 degree approx 111km. 
+                // Zoom factor for 15km range = 100 / 0.13 deg approx.
+                const zoomFactor = 1500; 
+                const hx = 50 + (state.selectedHospital.lng - state.location.lng) * zoomFactor;
+                const hy = 50 + (state.location.lat - state.selectedHospital.lat) * zoomFactor;
                 route = `<path d="M ${center.x} ${center.y} L ${hx} ${hy}" fill="none" stroke="#2563eb" stroke-width="1.2" class="route-path" stroke-linecap="round" />`;
             }
 
@@ -345,9 +355,14 @@
                              </div>
                         </div>
 
-                        ${state.hospitals.slice(0, 15).map(h => {
-                            const hx = 50 + (h.lng - state.location.lng) * 5000;
-                            const hy = 50 + (state.location.lat - h.lat) * 5000;
+                        ${state.hospitals.slice(0, 20).map(h => {
+                            const zoomFactor = 1500;
+                            const hx = 50 + (h.lng - state.location.lng) * zoomFactor;
+                            const hy = 50 + (state.location.lat - h.lat) * zoomFactor;
+                            
+                            // Only render if within visual bounds
+                            if (hx < -10 || hx > 110 || hy < -10 || hy > 110) return '';
+
                             return `
                                 <div onclick="setState({selectedHospital: ${JSON.stringify(h).replace(/"/g, '&quot;')}})" 
                                      class="absolute transition-all duration-300 transform -translate-x-1/2 -translate-y-1/2 ${state.selectedHospital?.id === h.id ? 'scale-125 z-40' : 'z-20'}" 
@@ -388,11 +403,28 @@
                             <div class="w-12 h-12 bg-orange-500 rounded-2xl flex items-center justify-center text-white"><i data-lucide="droplet" class="w-6 h-6"></i></div>
                             <h2 class="text-2xl font-black text-slate-900">Blood Bank</h2>
                         </div>
-                        <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">Inventory across medical grid</p>
+                        <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">Live inventory near you</p>
                     </div>
+
+                    <!-- Call Bar -->
+                    <div class="bg-blue-50 p-4 rounded-3xl border border-blue-100 flex items-center justify-between">
+                        <p class="text-[11px] font-black text-blue-600 uppercase tracking-wider">Check Hospital Availability</p>
+                        <i data-lucide="phone-forwarded" class="w-4 h-4 text-blue-400"></i>
+                    </div>
+
                     ${state.hospitals.map(h => `
-                        <div class="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
-                            <h4 class="font-black text-slate-800 text-sm mb-4 truncate">${h.name}</h4>
+                        <div onclick="setState({selectedHospital: ${JSON.stringify(h).replace(/"/g, '&quot;')}, activeTab: 'map'})" class="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm cursor-pointer active:bg-slate-50 transition-colors">
+                            <div class="flex justify-between items-center mb-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 bg-slate-100 text-slate-400 rounded-xl flex items-center justify-center">
+                                        <i data-lucide="navigation" class="w-5 h-5"></i>
+                                    </div>
+                                    <h4 class="font-black text-slate-800 text-sm truncate max-w-[140px]">${h.name}</h4>
+                                </div>
+                                <a href="tel:108" onclick="event.stopPropagation()" class="p-2.5 bg-red-50 text-red-600 rounded-xl active:scale-90 transition-transform">
+                                    <i data-lucide="phone" class="w-4 h-4"></i>
+                                </a>
+                            </div>
                             <div class="grid grid-cols-3 gap-2">
                                 ${Object.entries(h.blood).map(([t, q]) => `
                                     <div class="p-3 bg-slate-50 rounded-2xl text-center border border-slate-100">
@@ -415,7 +447,7 @@
                             <div class="w-12 h-12 bg-teal-500 rounded-2xl flex items-center justify-center text-white"><i data-lucide="info" class="w-6 h-6"></i></div>
                             <h2 class="text-2xl font-black text-slate-900">Emergency Aid</h2>
                         </div>
-                        <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">Steps to follow while waiting</p>
+                        <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">Follow these until help arrives</p>
                     </div>
                     ${FIRST_AID_GUIDES.map(g => `
                         <div class="bg-white p-7 rounded-[2.5rem] border border-slate-100 shadow-sm">
@@ -440,7 +472,7 @@
                         <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0">
                             <div class="flex items-center gap-3">
                                 <div class="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg"><i data-lucide="bot" class="text-white w-5 h-5"></i></div>
-                                <div><h2 class="text-lg font-black text-slate-900 leading-none">Lifeline AI</h2><p class="text-[10px] font-bold text-green-500 uppercase mt-1">Health Assistant</p></div>
+                                <div><h2 class="text-lg font-black text-slate-900 leading-none">Lifeline AI</h2><p class="text-[10px] font-bold text-green-500 uppercase mt-1">Direct Clinical Assistant</p></div>
                             </div>
                             <button onclick="setState({isAiModal: false})" class="p-2 bg-slate-50 rounded-xl text-slate-400"><i data-lucide="x" class="w-5 h-5"></i></button>
                         </div>
@@ -450,7 +482,7 @@
                         </div>
                         <div class="p-6 bg-white border-t border-slate-100">
                             <form onsubmit="event.preventDefault(); const inp = this.querySelector('input'); askAI(inp.value); inp.value='';" class="relative">
-                                <input type="text" placeholder="Explain symptoms..." class="w-full pl-6 pr-14 py-5 rounded-[2rem] bg-slate-100 text-sm font-bold border-none outline-none focus:ring-2 focus:ring-blue-500/20" />
+                                <input type="text" placeholder="Explain symptoms (e.g. Heart pain)..." class="w-full pl-6 pr-14 py-5 rounded-[2rem] bg-slate-100 text-sm font-bold border-none outline-none focus:ring-2 focus:ring-blue-500/20" />
                                 <button type="submit" class="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg active:scale-90 transition-all"><i data-lucide="send" class="w-4 h-4"></i></button>
                             </form>
                         </div>
@@ -460,7 +492,7 @@
         }
 
         function BottomNav() {
-            const tabs = [{ id: 'home', icon: 'home' }, { id: 'map', icon: 'navigation-2' }, { id: 'triage', icon: 'zap', central: true }, { id: 'blood', icon: 'droplet' }, { id: 'firstaid', icon: 'info' }];
+            const tabs = [{ id: 'home', icon: 'home' }, { id: 'map', icon: 'map' }, { id: 'triage', icon: 'zap', central: true }, { id: 'blood', icon: 'droplet' }, { id: 'firstaid', icon: 'info' }];
             return `
                 <nav class="fixed bottom-0 max-w-md w-full bg-white/95 backdrop-blur-2xl border-t border-slate-100 flex justify-around items-center p-4 pb-safe z-[200]">
                     ${tabs.map(tab => {
@@ -477,7 +509,6 @@
         function render() {
             const container = document.getElementById('app-container');
             
-            // Check if scripts have loaded correctly
             if (typeof lucide === 'undefined') {
                 container.innerHTML = `<div class="p-10 text-center">Script loading error. Please check your internet connection.</div>`;
                 return;
@@ -511,15 +542,9 @@
             const cb = document.getElementById('ai-chat-box'); if(cb) cb.scrollTop = cb.scrollHeight;
         }
 
-        // Initialize correctly on load
         window.addEventListener('load', () => {
             initApp();
-            // Final fallback to prevent blank page if something crashes in init
-            setTimeout(() => {
-                if (state.loading) {
-                    setState({ loading: false });
-                }
-            }, 10000);
+            setTimeout(() => { if (state.loading) setState({ loading: false }); }, 10000);
         });
     </script>
 </body>
