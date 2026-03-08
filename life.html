@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lifeline India - Seconds Matter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .animate-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .slide-up {
+            animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        .pulse-fast {
+            animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .dot-pulse {
+            position: relative;
+            width: 10px;
+            height: 10px;
+            border-radius: 5px;
+            background-color: #3b82f6;
+            color: #3b82f6;
+            animation: dotPulse 1.5s infinite linear;
+        }
+
+        @keyframes dotPulse {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(3); opacity: 0; }
+        }
+    </style>
+</head>
+<body class="flex justify-center items-start min-h-screen">
+
+    <div id="app-container" class="max-w-md w-full bg-white min-h-[100dvh] shadow-2xl relative overflow-hidden flex flex-col">
+        <!-- Content will be injected here by JavaScript -->
+    </div>
+
+    <script>
+        // --- CONSTANTS & STATE ---
+        const TRANSLATIONS = {
+            en: {
+                appName: "Lifeline India",
+                tagline: "Seconds matter. Saving lives together.",
+                quickSearch: "Symptom Triage",
+                medSearch: "Medicine Finder",
+                liveStatus: "Live Location",
+                beds: "Beds",
+                wait: "Wait",
+                stocks: "Stocks",
+                navigate: "Notify & Navigate",
+                emergency: "Helplines",
+                bestMatch: "Specialized for",
+                erStatus: "ER Ready",
+                notifySent: "ER Notified! Route mapping...",
+                eta: "ETA",
+                inventory: "Pharmacy Stocks",
+                admin: "Staff Login",
+                placeholder: "Enter symptoms (e.g. chest pain)",
+                recommended: "Recommended Specialist",
+                urgency: "Urgency Level",
+                bookToken: "Book Digital Token",
+                tokenSuccess: "Token Booked! Check-in on arrival.",
+                bloodBank: "Blood Availability",
+                firstAid: "First Aid Guide"
+            },
+            hi: {
+                appName: "लाइफलाइन इंडिया",
+                tagline: "हर पल कीमती है। जीवन रक्षा सर्वोपरि।",
+                quickSearch: "लक्षण जांच",
+                medSearch: "दवा खोजें",
+                liveStatus: "लाइव लोकेशन",
+                beds: "बेड",
+                wait: "समय",
+                stocks: "स्टॉक",
+                navigate: "सूचना और रास्ता",
+                emergency: "हेल्पलाइन",
+                bestMatch: "विशेषज्ञता",
+                erStatus: "ER तैयार है",
+                notifySent: "सूचना भेजी गई! रास्ता मैप किया जा रहा है...",
+                eta: "पहुँचने का समय",
+                inventory: "दवा भंडार",
+                admin: "स्टाफ लॉगिन",
+                placeholder: "लक्षण दर्ज करें (जैसे सीने में दर्द)",
+                recommended: "अनुशंसित विशेषज्ञ",
+                urgency: "अत्यावश्यकता स्तर",
+                bookToken: "डिजिटल टोकन बुक करें",
+                tokenSuccess: "टोकन बुक हो गया! पहुंचने पर चेक-इन करें।",
+                bloodBank: "रक्त की उपलब्धता",
+                firstAid: "प्राथमिक चिकित्सा"
+            }
+        };
+
+        let state = {
+            lang: 'en',
+            activeTab: 'home',
+            isAdmin: false,
+            location: { lat: 28.6139, lng: 77.2090 },
+            hospitals: [
+                { id: 'h1', name: "AIIMS - Trauma Center", beds: 4, wait: 12, lat: 28.5672, lng: 77.2100, specialty: "Cardiology", distance: "1.2 km", traffic: 'Low', blood: { 'O+': 12, 'A+': 5 }, medicines: { "Aspirin": 150, "Oxygen": 40, "Insulin": 10 } },
+                { id: 'h2', name: "Fortis Memorial", beds: 18, wait: 8, lat: 28.4595, lng: 77.0726, specialty: "Neurology", distance: "4.5 km", traffic: 'Moderate', blood: { 'O+': 2, 'B+': 18 }, medicines: { "Mannitol": 30, "Antibiotics": 200 } },
+                { id: 'h3', name: "Apollo Hospitals", beds: 0, wait: 45, lat: 28.5402, lng: 77.2831, specialty: "Orthopedics", distance: "6.8 km", traffic: 'Heavy', blood: { 'AB-': 1, 'O-': 0 }, medicines: { "Morphine": 12, "Oxygen": 5 } }
+            ],
+            searchQuery: '',
+            medQuery: '',
+            selectedHospital: null,
+            loading: true,
+            notification: null,
+            tokenBooked: null
+        };
+
+        // --- CORE FUNCTIONS ---
+
+        function t() { return TRANSLATIONS[state.lang]; }
+
+        function setState(newState) {
+            state = { ...state, ...newState };
+            render();
+        }
+
+        function showToast(msg) {
+            state.notification = msg;
+            render();
+            setTimeout(() => {
+                state.notification = null;
+                render();
+            }, 3000);
+        }
+
+        function getTriageResult() {
+            const q = state.searchQuery.toLowerCase();
+            if (!q || q.length < 3) return null;
+            if (q.includes('chest') || q.includes('heart') || q.includes('सीने')) 
+                return { dept: state.lang === 'hi' ? 'हृदय रोग' : 'Cardiology', color: 'bg-red-500', urgency: 'CRITICAL', aid: 'Keep patient sitting, loosen tight clothes.' };
+            if (q.includes('bone') || q.includes('accident') || q.includes('हड्डी')) 
+                return { dept: state.lang === 'hi' ? 'अस्थि रोग' : 'Orthopedics', color: 'bg-orange-500', urgency: 'HIGH', aid: 'Immobilize the area, do not try to realign.' };
+            return { dept: state.lang === 'hi' ? 'सामान्य' : 'General', color: 'bg-blue-500', urgency: 'STABLE', aid: 'Monitor vitals and stay hydrated.' };
+        }
+
+        // --- UI COMPONENTS ---
+
+        function Header() {
+            return `
+                <div class="bg-white/80 backdrop-blur-md p-4 flex justify-between items-center sticky top-0 z-50 border-b border-slate-100">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                            <i data-lucide="zap" class="text-white fill-white w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-lg font-black text-slate-900 tracking-tight leading-none uppercase">${t().appName}</h1>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                                <span class="inline-block w-2 h-2 bg-green-500 rounded-full pulse-fast mr-1"></span> ${t().liveStatus}
+                            </p>
+                        </div>
+                    </div>
+                    <button onclick="setState({lang: state.lang === 'en' ? 'hi' : 'en'})" class="px-3 py-1.5 bg-slate-100 rounded-full text-[10px] font-black text-slate-600 flex items-center gap-2 hover:bg-slate-200 transition-colors">
+                        <i data-lucide="languages" class="w-3.5 h-3.5"></i> ${state.lang === 'en' ? 'हिन्दी' : 'English'}
+                    </button>
+                </div>
+            `;
+        }
+
+        function HomeView() {
+            return `
+                <div class="p-5 space-y-6 pb-24 animate-in overflow-y-auto flex-1 hide-scrollbar">
+                    <!-- Regional Summary -->
+                    <div class="bg-gradient-to-br from-slate-900 to-slate-800 p-6 rounded-3xl text-white shadow-2xl relative overflow-hidden">
+                        <div class="absolute -right-10 -top-10 w-40 h-40 bg-blue-500/20 rounded-full blur-3xl"></div>
+                        <div class="relative z-10">
+                            <p class="text-[10px] font-bold text-blue-400 uppercase tracking-[0.2em] mb-2">Regional Health Index</p>
+                            <div class="flex items-end gap-2 mb-6">
+                                <h2 class="text-4xl font-black">74%</h2>
+                                <p class="text-xs text-slate-400 pb-1 mb-1">Bed Availability Score</p>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="bg-white/5 p-3 rounded-2xl border border-white/10">
+                                    <p class="text-[10px] text-slate-400 font-bold">ACTIVE ERs</p>
+                                    <p class="text-xl font-bold">14</p>
+                                </div>
+                                <div class="bg-white/5 p-3 rounded-2xl border border-white/10">
+                                    <p class="text-[10px] text-slate-400 font-bold">MEDS IN STOCK</p>
+                                    <p class="text-xl font-bold">98%</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Enhanced Features Grid -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <button onclick="setState({activeTab: 'triage'})" class="p-4 bg-red-50 rounded-2xl border border-red-100 text-left hover:scale-[0.98] transition-transform">
+                            <div class="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center text-white mb-3 shadow-lg shadow-red-500/30">
+                                <i data-lucide="activity" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="font-bold text-slate-800 text-sm">${t().quickSearch}</h3>
+                            <p class="text-[10px] text-slate-500 mt-1 italic">Symptom matching</p>
+                        </button>
+                        <button onclick="setState({activeTab: 'meds'})" class="p-4 bg-blue-50 rounded-2xl border border-blue-100 text-left hover:scale-[0.98] transition-transform">
+                            <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white mb-3 shadow-lg shadow-blue-500/30">
+                                <i data-lucide="package" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="font-bold text-slate-800 text-sm">${t().medSearch}</h3>
+                            <p class="text-[10px] text-slate-500 mt-1 italic">Stock availability</p>
+                        </button>
+                        <button onclick="showToast('Loading Blood Inventory...')" class="p-4 bg-orange-50 rounded-2xl border border-orange-100 text-left hover:scale-[0.98] transition-transform">
+                            <div class="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white mb-3 shadow-lg shadow-orange-500/30">
+                                <i data-lucide="droplet" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="font-bold text-slate-800 text-sm">${t().bloodBank}</h3>
+                            <p class="text-[10px] text-slate-500 mt-1 italic">Real-time units</p>
+                        </button>
+                        <button onclick="showToast('Opening Guide...')" class="p-4 bg-teal-50 rounded-2xl border border-teal-100 text-left hover:scale-[0.98] transition-transform">
+                            <div class="w-10 h-10 bg-teal-500 rounded-full flex items-center justify-center text-white mb-3 shadow-lg shadow-teal-500/30">
+                                <i data-lucide="info" class="w-5 h-5"></i>
+                            </div>
+                            <h3 class="font-bold text-slate-800 text-sm">${t().firstAid}</h3>
+                            <p class="text-[10px] text-slate-500 mt-1 italic">Emergency steps</p>
+                        </button>
+                    </div>
+
+                    <!-- Priority Centers -->
+                    <div>
+                        <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 px-1">${state.lang === 'en' ? 'Priority Centers' : 'प्राथमिकता केंद्र'}</h3>
+                        <div class="space-y-4">
+                            ${state.hospitals.slice(0, 2).map(h => `
+                                <div class="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
+                                    <div class="w-14 h-14 rounded-2xl flex flex-col items-center justify-center ${h.beds > 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}">
+                                        <span class="text-xl font-black">${h.beds}</span>
+                                        <span class="text-[8px] font-bold uppercase">${t().beds}</span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <h4 class="font-bold text-slate-800 text-sm">${h.name}</h4>
+                                        <div class="flex items-center gap-3 mt-1">
+                                            <span class="text-[10px] font-bold text-slate-400 flex items-center gap-1"><i data-lucide="map-pin" class="w-2.5 h-2.5"></i> ${h.distance}</span>
+                                            <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">${h.specialty}</span>
+                                        </div>
+                                    </div>
+                                    <button onclick="setState({selectedHospital: ${JSON.stringify(h).replace(/"/g, '&quot;')}, activeTab: 'map'})" class="p-2 bg-slate-50 rounded-full text-slate-400 hover:text-blue-600 transition-colors">
+                                        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                                    </button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Direct SOS -->
+                    <div class="bg-red-600 p-5 rounded-3xl text-white flex justify-between items-center shadow-xl shadow-red-500/20">
+                        <div>
+                            <p class="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-1">${t().emergency}</p>
+                            <h3 class="text-xl font-black italic">102 / 108</h3>
+                        </div>
+                        <a href="tel:108" class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-red-600 shadow-lg active:scale-90 transition-transform">
+                            <i data-lucide="phone" class="w-6 h-6 fill-current"></i>
+                        </a>
+                    </div>
+                </div>
+            `;
+        }
+
+        function TriageView() {
+            const triageResult = getTriageResult();
+            return `
+                <div class="p-5 pb-24 animate-in flex-1 overflow-y-auto hide-scrollbar">
+                    <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-xl min-h-full">
+                        <h2 class="text-2xl font-black text-slate-900 mb-2">${t().quickSearch}</h2>
+                        <p class="text-sm text-slate-500 mb-6">${t().tagline}</p>
+                        
+                        <div class="relative mb-6">
+                            <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5"></i>
+                            <input 
+                                id="triage-input"
+                                type="text" 
+                                placeholder="${t().placeholder}"
+                                class="w-full pl-12 pr-4 py-5 rounded-2xl bg-slate-50 text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all border-none"
+                                value="${state.searchQuery}"
+                                oninput="setState({searchQuery: this.value})"
+                            />
+                        </div>
+
+                        ${triageResult ? `
+                            <div class="space-y-4 animate-in">
+                                <div class="p-6 rounded-3xl text-white ${triageResult.color} shadow-lg shadow-blue-500/20">
+                                    <div class="flex justify-between items-start mb-4">
+                                        <div>
+                                            <p class="text-[10px] font-bold uppercase opacity-80 tracking-widest mb-1">${t().recommended}</p>
+                                            <p class="text-xl font-black leading-tight">${triageResult.dept}</p>
+                                        </div>
+                                        <div class="bg-white/20 p-2 rounded-xl backdrop-blur-md">
+                                            <i data-lucide="shield-check" class="w-6 h-6"></i>
+                                        </div>
+                                    </div>
+                                    <div class="bg-black/10 p-3 rounded-xl mt-4">
+                                        <p class="text-[10px] uppercase font-bold text-white/70">Immediate Steps</p>
+                                        <p class="text-xs font-medium">${triageResult.aid}</p>
+                                    </div>
+                                    <div class="flex justify-between items-center bg-black/10 -mx-6 -mb-6 p-4 px-6 mt-6 rounded-b-3xl">
+                                        <span class="text-xs font-bold uppercase tracking-wider">${t().urgency}</span>
+                                        <span class="text-sm font-black tracking-widest">${triageResult.urgency}</span>
+                                    </div>
+                                </div>
+                                
+                                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest text-center py-4">Nearest Centers for ${triageResult.dept}</p>
+                                ${state.hospitals.filter(h => h.specialty === triageResult.dept || triageResult.dept === 'General').map(h => `
+                                    <button onclick="setState({selectedHospital: ${JSON.stringify(h).replace(/"/g, '&quot;')}, activeTab: 'map'})" class="w-full p-4 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center text-left hover:bg-white hover:shadow-md transition-all">
+                                        <div>
+                                            <h4 class="font-bold text-slate-800 text-sm">${h.name}</h4>
+                                            <p class="text-[10px] text-slate-400 font-bold uppercase">${h.distance} away • ${h.beds} Beds</p>
+                                        </div>
+                                        <i data-lucide="arrow-right" class="w-4.5 h-4.5 text-slate-300"></i>
+                                    </button>
+                                `).join('')}
+                            </div>
+                        ` : `
+                            <div class="py-20 text-center text-slate-300">
+                                <i data-lucide="activity" class="mx-auto mb-4 opacity-10 w-16 h-16"></i>
+                                <p class="text-sm font-medium">Start typing symptoms for AI routing</p>
+                            </div>
+                        `}
+                    </div>
+                </div>
+            `;
+        }
+
+        function MapView() {
+            const hData = state.hospitals;
+            return `
+                <div class="flex-1 bg-slate-100 relative overflow-hidden flex flex-col animate-in">
+                    <div class="flex-1 relative flex items-center justify-center">
+                        <!-- Mock Map Background -->
+                        <div class="absolute inset-0 opacity-20 pointer-events-none grayscale">
+                             <div class="w-full h-full" style="background-image: radial-gradient(#cbd5e1 2px, transparent 2px); background-size: 30px 30px;"></div>
+                        </div>
+
+                        <div class="text-center p-10 relative z-0">
+                            <div class="w-24 h-24 bg-white/50 backdrop-blur-xl rounded-full flex items-center justify-center mx-auto mb-4 border border-white">
+                                <div class="dot-pulse absolute"></div>
+                                <i data-lucide="navigation" class="text-blue-500 w-10 h-10"></i>
+                            </div>
+                            <h3 class="text-lg font-black text-slate-400 uppercase tracking-widest">Live Radar</h3>
+                            <p class="text-xs text-slate-400 mt-2">Locating best routes & traffic...</p>
+                        </div>
+                        
+                        ${hData.map((h, i) => `
+                            <div 
+                                onclick="setState({selectedHospital: ${JSON.stringify(h).replace(/"/g, '&quot;')}, tokenBooked: null})"
+                                class="absolute cursor-pointer transition-all duration-300 ${state.selectedHospital?.id === h.id ? 'scale-125 z-20' : 'scale-100 z-10'}"
+                                style="top: ${30 + (i * 15)}%; left: ${20 + (i * 25)}%"
+                            >
+                                <div class="p-2 rounded-full shadow-2xl ring-4 ring-white ${h.beds > 5 ? 'bg-green-500' : h.beds > 0 ? 'bg-orange-500' : 'bg-red-500'}">
+                                    <i data-lucide="hospital" class="w-5 h-5 text-white"></i>
+                                </div>
+                                ${state.selectedHospital?.id === h.id ? `
+                                    <div class="absolute top-12 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-bold px-3 py-1.5 rounded-full whitespace-nowrap shadow-xl">
+                                        ${h.name}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    ${state.selectedHospital ? `
+                        <div class="absolute bottom-24 left-4 right-4 bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 p-6 slide-up z-30 max-h-[70%] overflow-y-auto hide-scrollbar">
+                            <div class="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-6"></div>
+                            <div class="flex justify-between items-start mb-4">
+                                <div>
+                                    <span class="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full uppercase mb-2 inline-block">
+                                        ${t().bestMatch}: ${state.selectedHospital.specialty}
+                                    </span>
+                                    <h3 class="text-xl font-black text-slate-900 leading-tight">${state.selectedHospital.name}</h3>
+                                    <div class="flex items-center gap-2 mt-1">
+                                         <p class="text-xs text-slate-400 flex items-center gap-1 font-bold">
+                                            <i data-lucide="map-pin" class="w-3 h-3"></i> ${state.selectedHospital.distance}
+                                        </p>
+                                        <span class="w-1 h-1 bg-slate-300 rounded-full"></span>
+                                        <p class="text-[10px] font-bold uppercase ${state.selectedHospital.traffic === 'Low' ? 'text-green-500' : 'text-orange-500'}">
+                                            ${state.selectedHospital.traffic} Traffic
+                                        </p>
+                                    </div>
+                                </div>
+                                <button onclick="setState({selectedHospital: null})" class="p-2 bg-slate-50 rounded-full text-slate-400">
+                                    <i data-lucide="x" class="w-5 h-5"></i>
+                                </button>
+                            </div>
+
+                            <div class="grid grid-cols-3 gap-3 mb-6">
+                                <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-center">
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">${t().beds}</p>
+                                    <p class="text-xl font-black ${state.selectedHospital.beds > 0 ? 'text-green-600' : 'text-red-600'}">${state.selectedHospital.beds}</p>
+                                </div>
+                                <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-center">
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">${t().wait}</p>
+                                    <p class="text-xl font-black text-slate-800">${state.selectedHospital.wait}m</p>
+                                </div>
+                                <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-center flex flex-col items-center justify-center">
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Queue</p>
+                                    <p class="text-xl font-black text-blue-600">#${Math.floor(Math.random() * 20) + 1}</p>
+                                </div>
+                            </div>
+
+                            <div class="flex gap-3 mb-4">
+                                 <button 
+                                    onclick="handleTokenBooking()" 
+                                    class="flex-1 py-4 ${state.tokenBooked ? 'bg-green-100 text-green-700' : 'bg-slate-900 text-white'} rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-all"
+                                    ${state.tokenBooked ? 'disabled' : ''}
+                                >
+                                    <i data-lucide="${state.tokenBooked ? 'check-circle' : 'ticket'}" class="w-4 h-4"></i>
+                                    ${state.tokenBooked ? 'Token #LL91' : t().bookToken}
+                                </button>
+                                <button 
+                                    onclick="showToast('Blood units verified.')"
+                                    class="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center text-red-600 border border-red-100"
+                                >
+                                    <i data-lucide="droplet" class="w-6 h-6"></i>
+                                </button>
+                            </div>
+
+                            <button 
+                                onclick="handleNavigation()" 
+                                class="w-full py-5 bg-blue-600 text-white rounded-3xl font-black text-base shadow-xl shadow-blue-500/30 flex items-center justify-center gap-3 active:scale-[0.98] transition-all"
+                            >
+                                ${t().navigate} <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function AdminPortal() {
+            return `
+                <div class="p-6 bg-slate-900 h-full text-white overflow-y-auto pb-24 hide-scrollbar">
+                    <div class="flex justify-between items-center mb-10">
+                        <div>
+                            <h2 class="text-2xl font-black">${t().admin}</h2>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Authorized Access Only</p>
+                        </div>
+                        <button onclick="setState({isAdmin: false})" class="text-xs font-bold text-slate-400 underline">Logout</button>
+                    </div>
+
+                    <div class="space-y-6">
+                        ${state.hospitals.map(h => `
+                            <div class="bg-white/5 p-6 rounded-3xl border border-white/10">
+                                <div class="flex justify-between items-start mb-6">
+                                    <h3 class="text-lg font-bold text-slate-200">${h.name}</h3>
+                                    <div class="w-3 h-3 bg-green-500 rounded-full shadow-lg shadow-green-500/20"></div>
+                                </div>
+
+                                <div class="bg-white/5 p-4 rounded-2xl flex items-center justify-between border border-white/5 mb-6">
+                                    <div>
+                                        <p class="text-3xl font-black">${h.beds}</p>
+                                        <p class="text-[10px] text-slate-500 font-bold uppercase">Vacant ICU Beds</p>
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button onclick="updateBeds('${h.id}', -1)" class="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center hover:bg-red-500/50 transition-colors">
+                                            <i data-lucide="minus" class="w-5 h-5"></i>
+                                        </button>
+                                        <button onclick="updateBeds('${h.id}', 1)" class="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center hover:bg-green-500/50 transition-colors">
+                                            <i data-lucide="plus" class="w-5 h-5"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-3">
+                                   <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">${t().inventory}</p>
+                                   ${Object.entries(h.medicines).map(([name, qty]) => `
+                                      <div class="flex justify-between items-center text-sm p-2 bg-black/20 rounded-lg">
+                                        <span class="text-slate-400 font-medium">${name}</span>
+                                        <span class="font-mono font-bold text-blue-400">${qty}u</span>
+                                      </div>
+                                   `).join('')}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function BottomNav() {
+            if (state.isAdmin) return '';
+            const tabs = [
+                { id: 'home', icon: 'home' },
+                { id: 'map', icon: 'map-pin' },
+                { id: 'triage', icon: 'zap', central: true },
+                { id: 'meds', icon: 'package' },
+                { id: 'admin', icon: 'menu' }
+            ];
+
+            return `
+                <nav class="fixed bottom-0 max-w-md w-full bg-white/80 backdrop-blur-xl border-t border-slate-100 flex justify-around items-center p-3 pb-6 z-[60]">
+                    ${tabs.map(tab => {
+                        if (tab.central) {
+                            return `
+                                <div onclick="setState({activeTab: 'triage'})" class="w-12 h-12 -mt-10 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-xl shadow-blue-500/40 active:scale-90 transition-all cursor-pointer">
+                                    <i data-lucide="zap" class="w-6 h-6 fill-white"></i>
+                                </div>
+                            `;
+                        }
+                        return `
+                            <button 
+                                onclick="${tab.id === 'admin' ? 'setState({isAdmin: true})' : `setState({activeTab: '${tab.id}'})`}" 
+                                class="p-2 transition-all ${state.activeTab === tab.id ? 'text-blue-600 scale-110' : 'text-slate-400'}"
+                            >
+                                <i data-lucide="${tab.icon}" class="w-5.5 h-5.5 ${state.activeTab === tab.id ? 'fill-current' : ''}"></i>
+                            </button>
+                        `;
+                    }).join('')}
+                </nav>
+            `;
+        }
+
+        function Toast() {
+            if (!state.notification) return '';
+            return `
+                <div class="fixed top-20 left-4 right-4 z-[100] animate-in">
+                    <div class="bg-green-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3">
+                        <i data-lucide="zap" class="w-5 h-5 fill-white"></i>
+                        <p class="font-black text-sm uppercase tracking-wider">${state.notification}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateBeds(id, delta) {
+            const h = state.hospitals.find(h => h.id === id);
+            if (h) {
+                h.beds = Math.max(0, h.beds + delta);
+                setState({}); 
+            }
+        }
+
+        // --- HANDLERS ---
+
+        function handleNavigation() {
+            if (!state.selectedHospital) return;
+            showToast(t().notifySent);
+            const url = `https://www.google.com/maps/dir/?api=1&destination=${state.selectedHospital.lat},${state.selectedHospital.lng}&travelmode=driving`;
+            setTimeout(() => {
+                window.open(url, '_blank');
+            }, 1000);
+        }
+
+        function handleTokenBooking() {
+            setState({ tokenBooked: true });
+            showToast(t().tokenSuccess);
+        }
+
+        // --- MAIN RENDERER ---
+
+        function render() {
+            const container = document.getElementById('app-container');
+            
+            if (state.loading) {
+                container.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center bg-slate-900 absolute inset-0">
+                        <i data-lucide="zap" class="text-blue-500 animate-pulse w-16 h-16 fill-current mb-6"></i>
+                        <span class="text-sm font-black tracking-[0.4em] text-white uppercase animate-pulse">Initializing Lifeline</span>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            let viewContent = '';
+            if (state.isAdmin) {
+                viewContent = AdminPortal();
+            } else {
+                switch(state.activeTab) {
+                    case 'home': viewContent = HomeView(); break;
+                    case 'map': viewContent = MapView(); break;
+                    case 'triage': viewContent = TriageView(); break;
+                    case 'meds': viewContent = MedSearchView(); break;
+                }
+            }
+
+            container.innerHTML = `
+                ${Header()}
+                <main class="flex-1 flex flex-col overflow-hidden relative">
+                    ${viewContent}
+                </main>
+                ${Toast()}
+                ${BottomNav()}
+                <div class="absolute top-0 w-full h-1 bg-slate-900/5 z-[100] pointer-events-none"></div>
+            `;
+
+            lucide.createIcons();
+            
+            const triageInput = document.getElementById('triage-input');
+            if (triageInput && state.searchQuery === '') {
+                setTimeout(() => triageInput.focus(), 100);
+            }
+        }
+
+        // --- INIT ---
+        window.onload = () => {
+            setTimeout(() => {
+                state.loading = false;
+                if ("geolocation" in navigator) {
+                    navigator.geolocation.getCurrentPosition(
+                        (pos) => state.location = { lat: pos.coords.latitude, lng: pos.coords.longitude },
+                        () => console.log("Default coords used")
+                    );
+                }
+                render();
+            }, 1000);
+        };
+    </script>
+</body>
+</html>
