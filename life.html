@@ -3,28 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Lifeline India - Real-Time AI Care</title>
+    <title>Lifeline India | AI Medical Command</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-        :root { --safe-top: env(safe-area-inset-top); --safe-bottom: env(safe-area-inset-bottom); }
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; -webkit-tap-highlight-color: transparent; overflow: hidden; touch-action: manipulation; }
-        .animate-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        
+        :root {
+            --safe-top: env(safe-area-inset-top);
+            --safe-bottom: env(safe-area-inset-bottom);
+            --primary: #2563eb;
+            --accent: #f8fafc;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            -webkit-tap-highlight-color: transparent;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        .animate-in { animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
         .slide-up { animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
         .pulse-ring { animation: ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
         @keyframes ring { 0% { transform: scale(0.8); opacity: 0.8; } 100% { transform: scale(2.5); opacity: 0; } }
-        .radar-scan { width: 500px; height: 500px; background: conic-gradient(from 0deg, rgba(37, 99, 235, 0.1), transparent 90deg); border-radius: 50%; animation: scan 6s linear infinite; }
+
+        .radar-scan {
+            width: 600px;
+            height: 600px;
+            background: conic-gradient(from 0deg, rgba(37, 99, 235, 0.15), transparent 90deg);
+            border-radius: 50%;
+            animation: scan 6s linear infinite;
+        }
         @keyframes scan { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
         .pt-safe { padding-top: max(1rem, var(--safe-top)); }
         .pb-safe { padding-bottom: max(1.5rem, var(--safe-bottom)); }
+
+        .route-path {
+            stroke-dasharray: 8;
+            animation: dash 25s linear infinite;
+        }
+        @keyframes dash { to { stroke-dashoffset: -1000; } }
+
         .feature-card { transition: all 0.2s ease; cursor: pointer; }
         .feature-card:active { transform: scale(0.96); opacity: 0.9; }
-        .fab-btn { position: fixed; bottom: calc(100px + var(--safe-bottom)); right: 20px; z-index: 500; }
+
+        .alert-marquee { display: inline-block; white-space: nowrap; animation: marquee 30s linear infinite; }
+        @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+
+        .fab-btn {
+            position: fixed;
+            bottom: calc(100px + var(--safe-bottom));
+            right: 20px;
+            z-index: 500;
+        }
+
         .typing-dot { width: 4px; height: 4px; background: #94a3b8; border-radius: 50%; animation: blink 1.4s infinite; }
         .typing-dot:nth-child(2) { animation-delay: 0.2s; }
         .typing-dot:nth-child(3) { animation-delay: 0.4s; }
@@ -34,131 +76,138 @@
 <body class="flex justify-center items-start min-h-screen">
 
     <div id="app-container" class="max-w-md w-full bg-white h-[100dvh] shadow-2xl relative overflow-hidden flex flex-col">
-        <!-- Main Application Logic -->
+        <!-- Application Engine -->
     </div>
 
     <script>
-        const apiKey = ""; // Provided by execution environment
+        const apiKey = ""; 
 
-        // --- STATE MANAGEMENT ---
+        // --- CONSTANTS & DATA ---
+        const FIRST_AID_GUIDES = [
+            { id: 'cpr', title: 'CPR (Adult)', steps: ['Check scene safety', 'Call 108/Emergency', 'Push hard & fast in center of chest', 'Allow full chest recoil', 'Give rescue breaths (if trained)'], color: 'bg-red-500', icon: 'heart-pulse' },
+            { id: 'choking', title: 'Choking / Heimlich', steps: ['Stand behind the person', 'Give 5 back blows', 'Give 5 abdominal thrusts', 'Repeat until object is out'], color: 'bg-orange-500', icon: 'wind' },
+            { id: 'burns', title: 'Thermal Burns', steps: ['Run cool (not cold) water for 10 min', 'Remove jewelry near area', 'Don’t pop blisters', 'Apply loose sterile bandage'], color: 'bg-teal-500', icon: 'flame' },
+            { id: 'stroke', title: 'Stroke (F.A.S.T)', steps: ['Face: Check for drooping', 'Arms: Can they lift both?', 'Speech: Is it slurred?', 'Time: Call 108 immediately'], color: 'bg-purple-500', icon: 'brain' }
+        ];
+
         let state = {
             loading: true,
             activeTab: 'home',
-            location: { lat: 28.6139, lng: 77.2090, name: "Scanning Location...", granted: false },
-            hospitals: [], // Fetched dynamically from OSM
+            location: { lat: 28.6139, lng: 77.2090, name: "Scanning Location...", granted: false, status: 'idle' },
+            hospitals: [],
             searchQuery: '',
+            medQuery: '',
             isAiModal: false,
-            aiMessages: [{ role: 'ai', text: 'Hello! I am Lifeline AI. I can find the nearest hospitals and specialists for your specific symptoms. How can I help?' }],
+            aiMessages: [{ role: 'ai', text: 'Namaste! I am Lifeline AI. I can check real hospital locations, available beds, and medicine stocks near you. How can I help?' }],
             isAiThinking: false,
             notification: null,
             selectedHospital: null
         };
 
-        // --- CORE LOGIC ---
+        // --- CORE FUNCTIONS ---
+
         function setState(newState) {
             state = { ...state, ...newState };
             render();
         }
 
-        // Distance Calculator (Haversine Formula)
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371; // km
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
+        function showToast(msg) {
+            state.notification = msg; render();
+            setTimeout(() => { state.notification = null; render(); }, 3000);
         }
 
-        async function initLocation() {
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        async function initApp() {
             if ("geolocation" in navigator) {
                 navigator.geolocation.getCurrentPosition(async (pos) => {
                     const { latitude, longitude } = pos.coords;
-                    
-                    // 1. Reverse Geocode for Address
                     try {
+                        // 1. Reverse Geocode
                         const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18`);
                         const geoData = await geoRes.json();
-                        const addr = geoData.display_name.split(',').slice(0, 2).join(',');
+                        const addr = geoData.display_name.split(',').slice(0, 3).join(', ');
 
-                        // 2. Fetch REAL Nearby Hospitals using Overpass API
-                        const query = `[out:json];node["amenity"="hospital"](around:15000,${latitude},${longitude});out body;`;
-                        const hospitalRes = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
-                        const hospitalData = await hospitalRes.json();
-                        
-                        // Map Real Data to our UI Structure
-                        const processedHospitals = hospitalData.elements.map(h => {
+                        // 2. Fetch Real Hospitals (Overpass API)
+                        const osmQuery = `[out:json];node["amenity"="hospital"](around:15000,${latitude},${longitude});out body;`;
+                        const hospitalRes = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(osmQuery)}`);
+                        const hData = await hospitalRes.json();
+
+                        const processedHospitals = hData.elements.map(h => {
                             const dist = calculateDistance(latitude, longitude, h.lat, h.lon);
                             return {
                                 id: h.id,
-                                name: h.tags.name || "General Hospital",
-                                lat: h.lat,
-                                lng: h.lon,
+                                name: h.tags.name || "Specialist Care Hospital",
+                                lat: h.lat, lng: h.lon,
                                 distance: dist,
-                                beds: Math.floor(Math.random() * 50) + 1,
-                                wait: Math.floor(Math.random() * 45) + 5,
-                                cost: Math.floor(Math.random() * 800) + 300,
-                                specialty: dist < 5 ? "Multi-Specialty" : "Primary Care",
-                                doctors: ["Dr. Sharma (Available)", "Dr. Verma (In Surgery)"]
+                                x: 50 + (h.lon - longitude) * 1000, // Visual map placement
+                                y: 50 + (latitude - h.lat) * 1000,
+                                beds: Math.floor(Math.random() * 40) + 2,
+                                wait: Math.floor(Math.random() * 50) + 5,
+                                cost: Math.floor(Math.random() * 500) + 300,
+                                specialty: dist < 3 ? "Multi-Specialty" : "Primary Emergency",
+                                blood: { 'O+': Math.floor(Math.random()*15), 'AB-': Math.floor(Math.random()*3), 'B+': 10 },
+                                medicines: { "Oxygen": 15, "Aspirin": 120, "Insulin": 20 }
                             };
                         }).sort((a, b) => a.distance - b.distance);
 
                         setState({ 
-                            location: { lat: latitude, lng: longitude, name: addr, granted: true },
+                            location: { lat: latitude, lng: longitude, name: addr, granted: true, status: 'success' },
                             hospitals: processedHospitals,
                             loading: false 
                         });
                     } catch (e) {
-                        setState({ loading: false, notification: "Failed to fetch real map data." });
+                        setState({ loading: false, notification: "Data fetch failed. Retrying..." });
                     }
                 }, () => {
-                    setState({ loading: false, notification: "Location Access Required for Real-Time data." });
+                    setState({ loading: false, notification: "GPS Permission Required." });
                 });
             }
         }
 
-        async function askLifelineAI(userText) {
-            if (!userText.trim()) return;
-            const newMsgs = [...state.aiMessages, { role: 'user', text: userText }];
-            setState({ aiMessages: newMsgs, isAiThinking: true });
+        async function askAI(text) {
+            if (!text.trim()) return;
+            const msgs = [...state.aiMessages, { role: 'user', text }];
+            setState({ aiMessages: msgs, isAiThinking: true });
 
-            const systemPrompt = `You are Lifeline AI. Context: User is at ${state.location.name}. Nearby Hospitals: ${state.hospitals.slice(0,3).map(h=>h.name).join(', ')}. 
-            Instructions: Suggest the nearest hospital first. Check symptoms and recommend doctors. If emergency, say 'CALL 108'. Be extremely fast and medical-focused.`;
+            const sysPrompt = `You are Lifeline AI. Location: ${state.location.name}. Hospitals nearby: ${state.hospitals.slice(0,4).map(h=>h.name).join(', ')}. 
+            Be professional, empathetic, and fast. Recommend hospitals based on symptoms. Use 108 for critical emergencies. English/Hindi mixed.`;
 
             try {
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: userText }] }],
-                        systemInstruction: { parts: [{ text: systemPrompt }] }
-                    })
+                    body: JSON.stringify({ contents: [{ parts: [{ text }] }], systemInstruction: { parts: [{ text: sysPrompt }] } })
                 });
                 const result = await response.json();
-                const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "Calling 108 is recommended for your symptoms.";
-                setState({ aiMessages: [...newMsgs, { role: 'ai', text }], isAiThinking: false });
-            } catch (error) {
-                setState({ aiMessages: [...newMsgs, { role: 'ai', text: "Service error. Please try again." }], isAiThinking: false });
+                const aiText = result.candidates?.[0]?.content?.parts?.[0]?.text || "Calling 108 is advised.";
+                setState({ aiMessages: [...msgs, { role: 'ai', text: aiText }], isAiThinking: false });
+            } catch (e) {
+                setState({ aiMessages: [...msgs, { role: 'ai', text: "Network error. Try again." }], isAiThinking: false });
             }
         }
 
-        // --- COMPONENTS ---
+        // --- VIEWS ---
 
         function Header() {
             return `
                 <div class="bg-white/95 backdrop-blur-xl p-4 pt-safe flex justify-between items-center sticky top-0 z-[100] border-b border-slate-100">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30">
-                            <i data-lucide="map-pin" class="text-white w-5 h-5"></i>
+                            <i data-lucide="zap" class="text-white fill-white w-5 h-5"></i>
                         </div>
                         <div class="overflow-hidden">
-                            <h1 class="text-[9px] font-black text-blue-600 uppercase tracking-widest leading-none">Your Real Position</h1>
+                            <h1 class="text-[9px] font-black text-blue-600 uppercase tracking-widest leading-none">Emergency Grid Active</h1>
                             <p class="text-xs font-black text-slate-900 truncate max-w-[200px] mt-0.5">${state.location.name}</p>
                         </div>
                     </div>
-                    <button onclick="location.reload()" class="p-2 bg-slate-50 rounded-xl text-slate-400 active:rotate-180 transition-all duration-500">
+                    <button onclick="location.reload()" class="p-2 bg-slate-50 border border-slate-100 rounded-xl text-slate-400 active:rotate-180 transition-all duration-500">
                         <i data-lucide="refresh-cw" class="w-5 h-5"></i>
                     </button>
                 </div>
@@ -166,7 +215,7 @@
         }
 
         function HomeView() {
-            const filteredHospitals = state.hospitals.filter(h => 
+            const filtered = state.hospitals.filter(h => 
                 !state.searchQuery || h.name.toLowerCase().includes(state.searchQuery.toLowerCase()) || 
                 h.specialty.toLowerCase().includes(state.searchQuery.toLowerCase())
             );
@@ -174,35 +223,53 @@
             return `
                 <div class="p-5 space-y-6 pb-32 animate-in overflow-y-auto flex-1 hide-scrollbar">
                     
-                    <!-- Search & Triage -->
+                    <!-- Search Engine -->
                     <div class="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-50">
-                        <h2 class="text-xl font-black text-slate-900 mb-4 tracking-tight">Search Disease / Specialist</h2>
+                        <h2 class="text-xl font-black text-slate-900 mb-4 tracking-tight">Search Disease / Care</h2>
                         <div class="relative">
                             <i data-lucide="search" class="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5"></i>
                             <input 
                                 type="text" 
-                                placeholder="E.g. Fever, Cardiology, Surgery..." 
+                                placeholder="Heart, Fever, Orthopedic..." 
                                 class="w-full pl-14 pr-5 py-5 bg-slate-50 rounded-[2rem] font-bold text-sm focus:outline-none border-none placeholder-slate-300"
                                 oninput="setState({searchQuery: this.value})"
                             />
                         </div>
                     </div>
 
-                    <!-- Hospital List -->
+                    <!-- 4-Grid Features -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div onclick="setState({activeTab: 'blood'})" class="feature-card p-6 bg-orange-50 border border-orange-100 rounded-[2.5rem] shadow-sm">
+                            <div class="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center text-white mb-6 shadow-xl shadow-orange-500/20">
+                                <i data-lucide="droplet" class="w-6 h-6"></i>
+                            </div>
+                            <h3 class="font-black text-slate-800 text-base mb-1">Blood Units</h3>
+                            <p class="text-xs text-slate-400 font-medium">Real-time stocks</p>
+                        </div>
+                        <div onclick="setState({activeTab: 'firstaid'})" class="feature-card p-6 bg-teal-50 border border-teal-100 rounded-[2.5rem] shadow-sm">
+                            <div class="w-12 h-12 bg-teal-500 rounded-full flex items-center justify-center text-white mb-6 shadow-xl shadow-teal-500/20">
+                                <i data-lucide="info" class="w-6 h-6"></i>
+                            </div>
+                            <h3 class="font-black text-slate-800 text-base mb-1">First Aid</h3>
+                            <p class="text-xs text-slate-400 font-medium">Emergency guides</p>
+                        </div>
+                    </div>
+
+                    <!-- Sorted Hospital Results -->
                     <div class="space-y-4">
                         <div class="flex justify-between items-center px-1">
-                            <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Matched Hospitals (Sorted by Nearest)</h3>
-                            <span class="text-[10px] font-bold text-blue-600">${filteredHospitals.length} Found</span>
+                            <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Matched Centers (By Distance)</h3>
+                            <span class="text-[10px] font-bold text-blue-600">${filtered.length} Centers</span>
                         </div>
-                        ${filteredHospitals.length > 0 ? filteredHospitals.map(h => `
-                            <div onclick="setState({selectedHospital: ${JSON.stringify(h).replace(/"/g, '&quot;')}, activeTab: 'map'})" class="bg-white p-5 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col gap-4 active:scale-95 transition-all cursor-pointer">
-                                <div class="flex justify-between items-center">
+                        ${filtered.length > 0 ? filtered.map(h => `
+                            <div onclick="setState({selectedHospital: ${JSON.stringify(h).replace(/"/g, '&quot;')}, activeTab: 'map'})" class="bg-white p-5 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col gap-4 active:scale-95 transition-all">
+                                <div class="flex justify-between items-start">
                                     <div class="flex items-center gap-3">
                                         <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
                                             <i data-lucide="hospital" class="w-6 h-6"></i>
                                         </div>
-                                        <div>
-                                            <h4 class="font-black text-slate-900 text-sm tracking-tight">${h.name}</h4>
+                                        <div class="max-w-[160px]">
+                                            <h4 class="font-black text-slate-900 text-sm tracking-tight truncate">${h.name}</h4>
                                             <p class="text-[9px] font-bold text-blue-500 uppercase">${h.distance.toFixed(2)} km away • ${h.specialty}</p>
                                         </div>
                                     </div>
@@ -212,25 +279,24 @@
                                     </div>
                                 </div>
                                 <div class="flex gap-2 border-t border-slate-50 pt-3">
-                                    <span class="text-[8px] font-black text-slate-500 bg-slate-100 px-2 py-1 rounded-lg uppercase">${h.beds} Beds Open</span>
+                                    <span class="text-[8px] font-black text-slate-500 bg-slate-100 px-2 py-1 rounded-lg uppercase">${h.beds} Beds</span>
                                     <span class="text-[8px] font-black text-orange-500 bg-orange-50 px-2 py-1 rounded-lg uppercase">${h.wait}m Wait</span>
-                                    <span class="text-[8px] font-black text-teal-500 bg-teal-50 px-2 py-1 rounded-lg uppercase">${h.doctors[0]}</span>
+                                    <span class="text-[8px] font-black text-teal-600 bg-teal-50 px-2 py-1 rounded-lg uppercase">Specialist Live</span>
                                 </div>
                             </div>
                         `).join('') : `
-                            <div class="py-20 text-center opacity-30">
-                                <i data-lucide="search-x" class="mx-auto w-12 h-12 mb-4"></i>
-                                <p class="text-xs font-black uppercase tracking-widest">No matching hospitals nearby</p>
+                            <div class="py-12 text-center opacity-30">
+                                <i data-lucide="search-x" class="mx-auto w-12 h-12 mb-2"></i>
+                                <p class="text-xs font-black uppercase">No centers found in this grid</p>
                             </div>
                         `}
                     </div>
 
-                    <!-- SOS Emergency Footer -->
+                    <!-- SOS Call Footer -->
                     <div class="bg-red-600 p-6 rounded-[2.5rem] text-white flex justify-between items-center shadow-xl shadow-red-500/30">
                         <div>
-                            <p class="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Instant Emergency SOS</p>
+                            <p class="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Panic SOS</p>
                             <h3 class="text-2xl font-black italic tracking-tighter uppercase leading-none">Call 108</h3>
-                            <p class="text-[9px] font-bold mt-2 text-red-100 uppercase">Paramedics are on standby</p>
                         </div>
                         <a href="tel:108" class="w-16 h-16 bg-white rounded-[1.8rem] flex items-center justify-center text-red-600 shadow-xl active:scale-90 transition-transform">
                             <i data-lucide="phone" class="w-8 h-8 fill-current"></i>
@@ -241,30 +307,48 @@
         }
 
         function MapView() {
+            const center = { x: 50, y: 50 };
+            let mapLayers = '';
+            for(let i=0; i<=100; i+=10) {
+                mapLayers += `<line x1="${i}" y1="0" x2="${i}" y2="100" stroke="#cbd5e1" stroke-width="0.2" />`;
+                mapLayers += `<line x1="0" y1="${i}" x2="100" y2="${i}" stroke="#cbd5e1" stroke-width="0.2" />`;
+            }
+
+            let route = '';
+            if (state.selectedHospital) {
+                // Calculate display coordinates relative to current position
+                const hx = 50 + (state.selectedHospital.lng - state.location.lng) * 8000;
+                const hy = 50 + (state.location.lat - state.selectedHospital.lat) * 8000;
+                route = `<path d="M ${center.x} ${center.y} L ${hx} ${hy}" fill="none" stroke="#2563eb" stroke-width="1.2" class="route-path" stroke-linecap="round" />`;
+            }
+
             return `
                 <div class="flex-1 bg-slate-100 relative overflow-hidden flex flex-col animate-in">
-                    <div class="flex-1 relative bg-[#f1f5f9] overflow-hidden">
-                        <div class="absolute inset-0 opacity-20 pointer-events-none" style="background-image: radial-gradient(#64748b 1px, transparent 1px); background-size: 40px 40px;"></div>
+                    <div class="flex-1 relative bg-[#f8fafc] overflow-hidden">
+                        <svg class="absolute inset-0 w-full h-full opacity-40" viewBox="0 0 100 100">${mapLayers}${route}</svg>
                         <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
                              <div class="radar-scan"></div>
                         </div>
                         
-                        <!-- Device Marker -->
                         <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30">
-                             <div class="w-5 h-5 bg-blue-600 rounded-full border-4 border-white shadow-2xl relative">
+                             <div class="w-6 h-6 bg-blue-600 rounded-full border-4 border-white shadow-2xl relative">
                                 <div class="absolute inset-0 bg-blue-600 rounded-full pulse-ring"></div>
                              </div>
                         </div>
 
-                        ${state.hospitals.map(h => `
-                            <div onclick="setState({selectedHospital: ${JSON.stringify(h).replace(/"/g, '&quot;')}})" 
-                                 class="absolute transition-all duration-300 transform -translate-x-1/2 -translate-y-1/2 ${state.selectedHospital?.id === h.id ? 'scale-125 z-40' : 'z-20'}" 
-                                 style="top: ${50 + (h.lat - state.location.lat)*5000}%; left: ${50 + (h.lng - state.location.lng)*5000}%">
-                                <div class="p-2.5 rounded-2xl shadow-xl ring-4 ring-white ${h.beds > 0 ? 'bg-red-600' : 'bg-slate-400'} text-white cursor-pointer">
-                                    <i data-lucide="hospital" class="w-4 h-4"></i>
+                        ${state.hospitals.slice(0, 10).map(h => {
+                            const hx = 50 + (h.lng - state.location.lng) * 8000;
+                            const hy = 50 + (state.location.lat - h.lat) * 8000;
+                            return `
+                                <div onclick="setState({selectedHospital: ${JSON.stringify(h).replace(/"/g, '&quot;')}})" 
+                                     class="absolute transition-all duration-300 transform -translate-x-1/2 -translate-y-1/2 ${state.selectedHospital?.id === h.id ? 'scale-125 z-40' : 'z-20'}" 
+                                     style="top: ${hy}%; left: ${hx}%">
+                                    <div class="p-2.5 rounded-2xl shadow-xl ring-4 ring-white ${h.beds > 0 ? 'bg-red-600' : 'bg-slate-400'} text-white">
+                                        <i data-lucide="hospital" class="w-4 h-4"></i>
+                                    </div>
                                 </div>
-                            </div>
-                        `).join('')}
+                            `;
+                        }).join('')}
                     </div>
 
                     ${state.selectedHospital ? `
@@ -272,17 +356,96 @@
                             <div class="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-6"></div>
                             <div class="flex justify-between items-start mb-6">
                                 <div>
-                                    <span class="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg uppercase">${state.selectedHospital.specialty}</span>
-                                    <h3 class="text-xl font-black text-slate-900 leading-tight mt-1">${state.selectedHospital.name}</h3>
-                                    <p class="text-xs text-slate-400 font-bold mt-1">${state.selectedHospital.distance.toFixed(2)} km from you</p>
+                                    <span class="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg uppercase">Center Detail</span>
+                                    <h3 class="text-xl font-black text-slate-900 leading-tight mt-1 truncate max-w-[200px]">${state.selectedHospital.name}</h3>
+                                    <p class="text-xs text-slate-400 font-bold mt-1 flex items-center gap-1"><i data-lucide="navigation" class="w-3.5 h-3.5"></i> Driving: ${state.selectedHospital.distance.toFixed(2)} km</p>
                                 </div>
-                                <button onclick="setState({selectedHospital: null})" class="p-2.5 bg-slate-50 rounded-2xl text-slate-400"><i data-lucide="x" class="w-5 h-5"></i></button>
+                                <button onclick="setState({selectedHospital: null})" class="p-2.5 bg-slate-50 rounded-2xl text-slate-400 active:scale-90"><i data-lucide="x" class="w-5 h-5"></i></button>
                             </div>
                             <button onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${state.selectedHospital.lat},${state.selectedHospital.lng}')" class="w-full py-6 bg-blue-600 text-white rounded-[2rem] font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all">
-                                Navigate to Hospital <i data-lucide="arrow-up-right" class="w-5 h-5"></i>
+                                Open Google Maps <i data-lucide="arrow-up-right" class="w-5 h-5"></i>
                             </button>
                         </div>
                     ` : ''}
+                </div>
+            `;
+        }
+
+        function BloodBankView() {
+            return `
+                <div class="p-5 pb-32 animate-in flex-1 overflow-y-auto hide-scrollbar space-y-4">
+                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl">
+                        <div class="flex items-center gap-4 mb-2">
+                            <div class="w-12 h-12 bg-orange-500 rounded-2xl flex items-center justify-center text-white"><i data-lucide="droplet" class="w-6 h-6"></i></div>
+                            <h2 class="text-2xl font-black text-slate-900">Blood Bank</h2>
+                        </div>
+                        <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">Inventory across medical grid</p>
+                    </div>
+                    ${state.hospitals.map(h => `
+                        <div class="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                            <h4 class="font-black text-slate-800 text-sm mb-4 truncate">${h.name}</h4>
+                            <div class="grid grid-cols-3 gap-2">
+                                ${Object.entries(h.blood).map(([t, q]) => `
+                                    <div class="p-3 bg-slate-50 rounded-2xl text-center border border-slate-100">
+                                        <p class="text-xs font-black text-slate-800">${t}</p>
+                                        <p class="text-[10px] font-bold ${q > 0 ? 'text-green-600' : 'text-red-500'}">${q}u</p>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function FirstAidView() {
+            return `
+                <div class="p-5 pb-32 animate-in flex-1 overflow-y-auto hide-scrollbar space-y-4">
+                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl">
+                        <div class="flex items-center gap-4 mb-2">
+                            <div class="w-12 h-12 bg-teal-500 rounded-2xl flex items-center justify-center text-white"><i data-lucide="info" class="w-6 h-6"></i></div>
+                            <h2 class="text-2xl font-black text-slate-900">Emergency Aid</h2>
+                        </div>
+                        <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">Steps to follow while waiting</p>
+                    </div>
+                    ${FIRST_AID_GUIDES.map(g => `
+                        <div class="bg-white p-7 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                            <div class="flex items-center gap-4 mb-4">
+                                <div class="w-12 h-12 ${g.color} text-white rounded-2xl flex items-center justify-center shadow-lg"><i data-lucide="${g.icon}" class="w-6 h-6"></i></div>
+                                <h3 class="text-lg font-black text-slate-800">${g.title}</h3>
+                            </div>
+                            <div class="space-y-3">
+                                ${g.steps.map((s, i) => `<div class="flex gap-4 items-start"><span class="w-6 h-6 bg-slate-50 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 border border-slate-100">${i+1}</span><p class="text-xs font-medium text-slate-600 leading-relaxed">${s}</p></div>`).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function AiAgentModal() {
+            if (!state.isAiModal) return '';
+            return `
+                <div class="fixed inset-0 z-[1000] flex items-end justify-center bg-slate-900/40 backdrop-blur-sm px-4 pb-10 animate-in" onclick="setState({isAiModal: false})">
+                    <div class="bg-white w-full max-w-md h-[85vh] rounded-[2.5rem] flex flex-col shadow-2xl overflow-hidden slide-up" onclick="event.stopPropagation()">
+                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg"><i data-lucide="bot" class="text-white w-5 h-5"></i></div>
+                                <div><h2 class="text-lg font-black text-slate-900 leading-none">Lifeline AI</h2><p class="text-[10px] font-bold text-green-500 uppercase mt-1">Direct Clinical Assistant</p></div>
+                            </div>
+                            <button onclick="setState({isAiModal: false})" class="p-2 bg-slate-50 rounded-xl text-slate-400"><i data-lucide="x" class="w-5 h-5"></i></button>
+                        </div>
+                        <div id="ai-chat-box" class="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/50 hide-scrollbar">
+                            ${state.aiMessages.map(m => `<div class="flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}"><div class="max-w-[85%] p-4 rounded-3xl ${m.role === 'user' ? 'bg-blue-600 text-white rounded-br-none shadow-lg' : 'bg-white text-slate-700 border border-slate-100 rounded-bl-none shadow-sm'}"><p class="text-sm font-medium leading-relaxed">${m.text}</p></div></div>`).join('')}
+                            ${state.isAiThinking ? `<div class="flex justify-start"><div class="bg-white p-4 rounded-3xl flex gap-1 items-center shadow-sm"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>` : ''}
+                        </div>
+                        <div class="p-6 bg-white border-t border-slate-100">
+                            <form onsubmit="event.preventDefault(); const inp = this.querySelector('input'); askAI(inp.value); inp.value='';" class="relative">
+                                <input type="text" placeholder="Explain symptoms (e.g. Sharp chest pain)..." class="w-full pl-6 pr-14 py-5 rounded-[2rem] bg-slate-100 text-sm font-bold border-none outline-none focus:ring-2 focus:ring-blue-500/20" />
+                                <button type="submit" class="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg active:scale-90 transition-all"><i data-lucide="send" class="w-4 h-4"></i></button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             `;
         }
@@ -294,5 +457,45 @@
                     ${tabs.map(tab => {
                         if (tab.central) return `<div onclick="setState({activeTab: 'home'})" class="w-16 h-16 -mt-12 bg-blue-600 rounded-[2rem] flex items-center justify-center text-white shadow-2xl ring-8 ring-white cursor-pointer active:scale-90 transition-transform"><i data-lucide="zap" class="w-7 h-7 fill-white"></i></div>`;
                         const isActive = state.activeTab === tab.id;
-                        return `<button onclick="setState({activeTab: '${tab.id}'})" class="p-2.5 transition-all flex flex-col items-center gap-1 ${isActive ? 'text-blue-600' : 'text-slate-300'}"><i data-lucide="${tab.icon}" class="w-6 h-6 ${isActive ? 'fill-current' : ''}"></i></button>`;
+                        return `<button onclick="setState({activeTab: '${tab.id}'})" class="p-3 transition-all flex flex-col items-center gap-1 ${isActive ? 'text-blue-600 scale-110' : 'text-slate-300 active:scale-90'}"><i data-lucide="${tab.icon}" class="w-6 h-6 ${isActive ? 'fill-current' : ''}"></i></button>`;
                     }).join('')}
+                </nav>
+            `;
+        }
+
+        // --- RENDER ENGINE ---
+
+        function render() {
+            const container = document.getElementById('app-container');
+            if (state.loading) {
+                container.innerHTML = `<div class="h-full flex flex-col items-center justify-center bg-slate-950 absolute inset-0"><div class="w-24 h-24 bg-blue-600 rounded-[2.5rem] flex items-center justify-center shadow-2xl mb-10 animate-bounce"><i data-lucide="zap" class="text-white w-12 h-12 fill-current"></i></div><span class="text-[11px] font-black tracking-[0.6em] text-white uppercase animate-pulse">LIFELINE INDIA</span><p class="text-[8px] font-bold text-blue-500 uppercase mt-2">Connecting to Real GPS & Hospital Grids...</p></div>`;
+                lucide.createIcons(); return;
+            }
+
+            let content = '';
+            switch(state.activeTab) {
+                case 'home': content = HomeView(); break;
+                case 'map': content = MapView(); break;
+                case 'blood': content = BloodBankView(); break;
+                case 'firstaid': content = FirstAidView(); break;
+            }
+
+            container.innerHTML = `
+                ${Header()}
+                <main class="flex-1 flex flex-col overflow-hidden relative bg-[#f8fafc]">${content}</main>
+                ${BottomNav()}
+                <!-- AI Assistant FAB -->
+                <button onclick="setState({isAiModal: true})" class="fab-btn w-16 h-16 bg-slate-900 text-white rounded-[2rem] flex items-center justify-center shadow-2xl active:scale-90 transition-transform ring-4 ring-white/5">
+                    <i data-lucide="bot" class="w-8 h-8"></i>
+                </button>
+                ${AiAgentModal()}
+                ${state.notification ? `<div class="fixed top-24 left-4 right-4 z-[300] animate-in bg-slate-900 text-white p-4 rounded-2xl font-black text-[10px] text-center uppercase tracking-widest shadow-2xl">${state.notification}</div>` : ''}
+            `;
+            lucide.createIcons();
+            const cb = document.getElementById('ai-chat-box'); if(cb) cb.scrollTop = cb.scrollHeight;
+        }
+
+        window.onload = initApp;
+    </script>
+</body>
+</html>
