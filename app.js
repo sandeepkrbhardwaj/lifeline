@@ -128,7 +128,7 @@ const FIRST_AID_GUIDES = {
         { id: 'bleeding', title: 'गंभीर रक्तस्राव', steps: ['मजबूती से सीधा दबाव डालें', 'साफ कपड़े का प्रयोग करें', 'घायल हिस्से को ऊपर उठाएं', 'खून से सने कपड़े न हटाएं, उसके ऊपर और रखें'], color: 'bg-rose-600', icon: 'droplet' },
         { id: 'burns', title: 'गंभीर रूप से जलना', steps: ['जले हुए हिस्से को 10-20 मिनट ठंडे पानी के नीचे रखें', 'जले हुए हिस्से के पास से गहने हटाएं', 'साफ पट्टी से ढकें', 'बर्फ या मलहम न लगाएं'], color: 'bg-amber-500', icon: 'flame' },
         { id: 'heart', title: 'दिल का दौरा', steps: ['व्यक्ति को बैठाएं और आराम कराएं', 'तंग कपड़े ढीले करें', 'दवा के बारे में पूछें', 'अगर होश में है, तो एक एस्पिरिन चबाने को दें'], color: 'bg-red-600', icon: 'activity' },
-        { id: 'stroke', title: 'स्ट्रोक (F.A.S.T.)', steps: ['F - चेहरा लटकना? मुस्कुराने को कहें', 'A - बांहों में कमजोरी? दोनों हाथ उठाने को कहें', 'S - बोलने में दिक्कत? साधारण वाक्य दोहराने को कहें', 'T - तुरंत 108 पर कॉल करने का समय'], color: 'bg-purple-500', icon: 'brain' }
+        { id: 'stroke', title: 'स्ट्रोक (F.A.S.T.)', steps: ['F - चेहरा लटकना? मुस्कुराने को कहें', 'A - बांहों कमजोरी? दोनों हाथ उठाने को कहें', 'S - बोलने में दिक्कत? साधारण वाक्य दोहराने को कहें', 'T - तुरंत 108 पर कॉल करने का समय'], color: 'bg-purple-500', icon: 'brain' }
     ],
     bn: [
         { id: 'cpr', title: 'সিপিআর (প্রাপ্তবয়স্ক)', steps: ['দৃশ্যের নিরাপত্তা পরীক্ষা করুন', '১০৮ কল করুন', 'বুকের মাঝখানে জোরে চাপ দিন', 'বুক স্বাভাবিক অবস্থায় আসতে দিন', 'মুখে মুখ দিয়ে শ্বাস দিন'], color: 'bg-red-500', icon: 'heart-pulse' },
@@ -235,47 +235,26 @@ async function initApp() {
             const osmQuery = `[out:json];node["amenity"="hospital"](around:100000,${latitude},${longitude});out body;`;
             const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(osmQuery)}`);
             const data = await res.json();
-            const specs = ["Cardiologist", "Neurologist", "Orthopedic Surgeon", "General Physician", "Pediatrician"];
             const elements = data.elements.slice(0, 100); 
             state.osmHospitals = elements.map(h => {
-                const spec = specs[Math.floor(Math.random() * specs.length)];
-                const randomPhone = '+91-' + Math.floor(9000000000 + Math.random() * 999999999);
                 return {
                     id: h.id.toString(), 
                     name: h.tags.name || "Medical Center", 
                     lat: h.lat, 
                     lng: h.lon,
                     distance: calculateDistance(latitude, longitude, h.lat, h.lon),
-                    beds: Math.floor(Math.random() * 100) + 20, 
-                    icuBeds: Math.floor(Math.random() * 20) + 5, 
-                    ventilators: Math.floor(Math.random() * 10) + 2, 
-                    doctors: Math.floor(Math.random() * 30) + 5, 
-                    cost: Math.floor(Math.random() * 1000) + 300, 
-                    specialty: spec,
-                    blood: { 
-                        'O+': Math.floor(Math.random() * 50), 
-                        'O-': Math.floor(Math.random() * 20), 
-                        'A+': Math.floor(Math.random() * 40), 
-                        'A-': Math.floor(Math.random() * 15), 
-                        'B+': Math.floor(Math.random() * 45), 
-                        'B-': Math.floor(Math.random() * 10), 
-                        'AB+': Math.floor(Math.random() * 25), 
-                        'AB-': Math.floor(Math.random() * 5) 
-                    }, 
-                    medicines: { "Oxygen Cylinders": Math.floor(Math.random() * 100) },
-                    doctorsList: [{type: 'General Physician', price: 500}],
-                    phone: randomPhone,
+                    beds: 0, 
+                    icuBeds: 0, 
+                    ventilators: 0, 
+                    ambulances: 0,
+                    cost: 0, 
+                    specialty: "General",
+                    blood: {}, 
+                    medicines: {},
+                    doctorsList: [],
+                    phone: h.tags['contact:phone'] || h.tags.phone || '',
                     isAutoPilot: false,
-                    departments: [
-                        { id: 'cardio', name: 'Cardiology', icon: 'fa-heart-pulse' },
-                        { id: 'neuro', name: 'Neurology', icon: 'fa-brain' },
-                        { id: 'ortho', name: 'Orthopedics', icon: 'fa-bone' },
-                        { id: 'gen', name: 'General Medicine', icon: 'fa-stethoscope' }
-                    ],
-                    staff: [
-                        { id: 1, name: "Dr. A. Sharma", dept: 'gen', present: true, shift: 'Morning', lastActive: 'Now' }
-                    ],
-                    assetTotals: { icuBeds: 50, ventilators: 20 }
+                    isCloudSynced: false
                 };
             });
             mergeHospitals();
@@ -314,18 +293,22 @@ window.updateLiveDOM = () => {
         if (h) {
             if (!state.adminUi.isEditingAssets) {
                 const icuText = document.getElementById(`val-icuBeds`);
-                if (icuText) icuText.innerText = `${h.icuBeds} / ${h.assetTotals?.icuBeds || 50}`;
+                if (icuText) icuText.innerText = `${h.icuBeds} / ${h.assetTotals?.icuBeds || 0}`;
                 const ventText = document.getElementById(`val-ventilators`);
-                if (ventText) ventText.innerText = `${h.ventilators} / ${h.assetTotals?.ventilators || 20}`;
+                if (ventText) ventText.innerText = `${h.ventilators} / ${h.assetTotals?.ventilators || 0}`;
             }
             const phoneInp = document.getElementById(`admin-phone-${h.id}`);
             if (phoneInp && document.activeElement !== phoneInp) phoneInp.value = h.phone || '';
             const bedsInp = document.getElementById(`admin-beds-${h.id}`);
             if (bedsInp && document.activeElement !== bedsInp) bedsInp.value = h.beds || 0;
+            const ambInp = document.getElementById(`admin-amb-${h.id}`);
+            if (ambInp && document.activeElement !== ambInp) ambInp.value = h.ambulances || 0;
             const staffActive = document.getElementById('stat-active-staff');
-            if(staffActive && h.staff) staffActive.innerText = h.staff.filter(s => s.present).length;
+            if(staffActive && h.doctorsList) staffActive.innerText = h.doctorsList.filter(s => s.present).length;
             const icuUsage = document.getElementById('stat-icu-usage');
-            if(icuUsage && h.assetTotals) icuUsage.innerText = `${Math.round((h.icuBeds / h.assetTotals.icuBeds) * 100) || 0}%`;
+            if(icuUsage && h.assetTotals && h.assetTotals.icuBeds > 0) {
+                icuUsage.innerText = `${Math.round((h.icuBeds / h.assetTotals.icuBeds) * 100)}%`;
+            }
             const bloodBankList = document.getElementById('blood-bank-list');
             if(bloodBankList) {
                 bloodBankList.innerHTML = Object.entries(h.blood || {}).map(([type, units]) => `
@@ -371,9 +354,9 @@ window.toggleAutoPilot = (hId) => {
                 return;
             }
             if(Math.random() > 0.5 && currentH.beds > 0) currentH.beds--;
-            else if(Math.random() > 0.5 && currentH.beds < 200) currentH.beds++;
+            else if(Math.random() > 0.5 && currentH.beds < (currentH.assetTotals?.beds || 200)) currentH.beds++;
             if(Math.random() > 0.7 && currentH.icuBeds > 0) currentH.icuBeds--;
-            else if(Math.random() > 0.7 && currentH.icuBeds < 50) currentH.icuBeds++;
+            else if(Math.random() > 0.7 && currentH.icuBeds < (currentH.assetTotals?.icuBeds || 50)) currentH.icuBeds++;
             const bloodTypes = Object.keys(currentH.blood || {});
             if(bloodTypes.length > 0) {
                 const randBlood = bloodTypes[Math.floor(Math.random() * bloodTypes.length)];
@@ -441,12 +424,12 @@ window.handleRegister = async () => {
         beds: existingHospital ? existingHospital.beds : 50, 
         icuBeds: existingHospital ? existingHospital.icuBeds : 10, 
         ventilators: existingHospital ? existingHospital.ventilators : 5, 
-        doctors: existingHospital ? existingHospital.doctors : 15, 
+        ambulances: existingHospital ? existingHospital.ambulances : 2,
         cost: existingHospital ? existingHospital.cost : 500, 
         specialty: existingHospital ? existingHospital.specialty : "Multispecialty",
         blood: existingHospital ? existingHospital.blood : { 'O+': 20, 'O-': 5, 'A+': 15, 'A-': 5, 'B+': 10, 'B-': 5, 'AB+': 5, 'AB-': 2 }, 
         medicines: existingHospital ? existingHospital.medicines : { "Oxygen Cylinders": 30 },
-        doctorsList: existingHospital && existingHospital.doctorsList ? existingHospital.doctorsList : [{ type: 'General Physician', price: 500 }],
+        doctorsList: existingHospital && existingHospital.doctorsList ? existingHospital.doctorsList : [{ id: Date.now(), name: `Dr. ${user}`, dept: 'gen', present: true, type: 'General Physician', shift: 'Morning', lastActive: 'Now', price: 500 }],
         phone: existingHospital && existingHospital.phone && !phone ? existingHospital.phone : phone || '',
         isAutoPilot: false,
         departments: [
@@ -455,10 +438,7 @@ window.handleRegister = async () => {
             { id: 'ortho', name: 'Orthopedics', icon: 'fa-bone' },
             { id: 'gen', name: 'General Medicine', icon: 'fa-stethoscope' }
         ],
-        staff: [
-            { id: Date.now(), name: `Dr. ${user}`, dept: 'gen', present: true, shift: 'Morning', lastActive: 'Now' }
-        ],
-        assetTotals: { icuBeds: 20, ventilators: 10 }
+        assetTotals: { beds: 50, icuBeds: 20, ventilators: 10 }
     };
     try {
         if(!existingHospital) {
@@ -483,6 +463,7 @@ window.setActiveDept = (id) => {
 window.adjResourceAdmin = (key, delta) => {
     const h = state.hospitals.find(x => x.id === state.adminHospitalId);
     if (!h) return;
+    if(!h.assetTotals) h.assetTotals = {icuBeds: 20, ventilators: 10};
     if(key === 'icuBeds') {
         h.icuBeds = Math.max(0, Math.min(h.assetTotals.icuBeds, h.icuBeds + delta));
     } else if(key === 'ventilators') {
@@ -520,8 +501,8 @@ window.adjBloodAdmin = (type, delta) => {
 
 window.toggleStaffPresence = (staffId) => {
     const h = state.hospitals.find(x => x.id === state.adminHospitalId);
-    if (!h || !h.staff) return;
-    const doc = h.staff.find(d => d.id === staffId);
+    if (!h || !h.doctorsList) return;
+    const doc = h.doctorsList.find(d => d.id === staffId);
     if (doc) {
         doc.present = !doc.present;
         doc.lastActive = 'Now';
@@ -533,8 +514,8 @@ window.toggleStaffPresence = (staffId) => {
 
 window.removeStaff = (staffId) => {
     const h = state.hospitals.find(x => x.id === state.adminHospitalId);
-    if (!h || !h.staff) return;
-    h.staff = h.staff.filter(d => d.id !== staffId);
+    if (!h || !h.doctorsList) return;
+    h.doctorsList = h.doctorsList.filter(d => d.id !== staffId);
     window.triggerAutoSave(h.id);
     window.renderDoctorGrid();
     window.updateLiveDOM();
@@ -580,11 +561,15 @@ window.addStaff = () => {
     const name = nameInput.value.trim();
     if (!name) return;
 
-    if(!h.staff) h.staff = [];
-    h.staff.push({
+    if(!h.doctorsList) h.doctorsList = [];
+    const deptObj = (h.departments || []).find(d => d.id === state.adminUi.activeDeptId);
+    
+    h.doctorsList.push({
         id: Date.now(),
         name: name,
         dept: state.adminUi.activeDeptId,
+        type: deptObj ? deptObj.name : 'Specialist',
+        price: 500,
         present: true,
         shift: state.adminUi.selectedShift,
         lastActive: 'Joined Now'
@@ -616,6 +601,17 @@ window.addDepartment = () => {
     render();
 }
 
+window.updateDoctorPrice = (hId, docId, val) => {
+    const h = state.hospitals.find(x => x.id === hId);
+    if (h && h.doctorsList) {
+        const doc = h.doctorsList.find(d => d.id === docId);
+        if(doc) {
+            doc.price = parseInt(val) || 0;
+            window.triggerAutoSave(hId);
+        }
+    }
+}
+
 window.renderDoctorGrid = () => {
     const h = state.hospitals.find(x => x.id === state.adminHospitalId);
     if (!h) return;
@@ -625,7 +621,7 @@ window.renderDoctorGrid = () => {
     const searchInp = document.getElementById('staff-search');
     const search = searchInp ? searchInp.value.toLowerCase() : '';
     
-    const filtered = (h.staff || []).filter(doc => 
+    const filtered = (h.doctorsList || []).filter(doc => 
         doc.dept === state.adminUi.activeDeptId && 
         doc.name.toLowerCase().includes(search)
     );
@@ -653,24 +649,47 @@ window.renderDoctorGrid = () => {
                     <div class="text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-md mb-2 ${doc.present ? 'bg-emerald-500 text-white' : 'bg-slate-400 text-white'}">
                         ${doc.present ? 'Active' : 'Standby'}
                     </div>
-                    <p class="text-[9px] text-slate-400 font-bold">L-SYNC: ${doc.lastActive}</p>
+                    <p class="text-[9px] text-slate-400 font-bold">L-SYNC: ${doc.lastActive || 'Now'}</p>
                 </div>
             </div>
             <h3 class="font-extrabold text-lg text-slate-800 leading-tight mb-1">${doc.name}</h3>
-            <p class="text-[10px] text-slate-400 font-black uppercase tracking-wider mb-5">${doc.shift} Duty</p>
-            <div class="flex items-center justify-between pt-5 border-t border-slate-50">
-                <div class="flex gap-1">
-                    <div class="h-1 w-4 rounded-full ${doc.present ? 'bg-emerald-500' : 'bg-slate-200'}"></div>
-                    <div class="h-1 w-4 rounded-full ${doc.present ? 'bg-emerald-500' : 'bg-slate-200'}"></div>
-                    <div class="h-1 w-1 rounded-full ${doc.present ? 'bg-emerald-500' : 'bg-slate-200'}"></div>
-                </div>
-                <div class="w-10 h-5 rounded-full relative transition-colors ${doc.present ? 'bg-emerald-500' : 'bg-slate-300'}">
-                    <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-all ${doc.present ? 'translate-x-5' : 'translate-x-0'} shadow-sm"></div>
+            <p class="text-[10px] text-slate-400 font-black uppercase tracking-wider mb-5">${doc.shift || 'General'} Duty</p>
+            <div class="flex items-center justify-between pt-4 border-t border-slate-50" onclick="event.stopPropagation()">
+                <span class="text-xs font-bold text-slate-500">Consultation Fee</span>
+                <div class="flex items-center gap-1">
+                    <span class="text-xs font-bold text-slate-400">₹</span>
+                    <input type="number" value="${doc.price || 0}" onchange="window.updateDoctorPrice('${h.id}', ${doc.id}, this.value)" class="w-16 p-1 bg-slate-50 rounded border border-slate-200 text-xs font-bold text-slate-800 text-center focus:outline-none">
                 </div>
             </div>
         </div>
     `).join('');
 }
+
+window.handleAdminPublish = async () => {
+    const h = state.hospitals.find(h => h.id === state.adminHospitalId);
+    if (!h) return;
+    try {
+        window.showToast("Syncing Live Updates...");
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'hospitals', h.id), h, { merge: true });
+        window.showToast("Live Updates Uploaded");
+    } catch(e) {}
+};
+
+window.updateHospitalString = (hId, key, val) => {
+    const h = state.hospitals.find(x => x.id === hId);
+    if (h) {
+        h[key] = val;
+        window.triggerAutoSave(hId);
+    }
+};
+
+window.updateHospitalStat = (hId, key, val) => { 
+    const h = state.hospitals.find(x => x.id === hId); 
+    if (h) {
+        h[key] = parseInt(val) || 0; 
+        window.triggerAutoSave(hId);
+    }
+};
 
 window.initLeafletMap = () => {
     if(window.mapInstance) {
@@ -693,36 +712,35 @@ window.initLeafletMap = () => {
         .bindPopup('<b>Your Location</b>');
     window.hospLayer = L.layerGroup().addTo(window.mapInstance);
     window.updateMapMarkers();
-    const ambData = [
-        { plate: 'UP 14 AB 1024', type: 'Advanced Life Support (ALS)', phone: '+91-108', cost: '₹1200 base + ₹50/km', hospital: 'District Hospital' },
-        { plate: 'DL 1C BX 9876', type: 'Basic Life Support (BLS)', phone: '+91-9999888877', cost: '₹800 base + ₹30/km', hospital: 'City Care' },
-        { plate: 'HR 26 XX 5555', type: 'Neonatal Care Unit', phone: '+91-8888777766', cost: '₹2000 base + ₹60/km', hospital: 'Child Care Center' }
-    ];
+    
+    const activeAmbulances = state.hospitals.reduce((acc, h) => acc + (h.ambulances || 0), 0) || 3;
     const ambHtml = `<div class="w-6 h-6 bg-white rounded-full border-2 border-blue-600 shadow-[0_0_10px_rgba(255,255,255,1)] flex items-center justify-center text-[10px] amb-marker">🚑</div>`;
     const ambIcon = L.divIcon({className: '', html: ambHtml, iconSize: [24, 24], iconAnchor: [12,12]});
+    
     if(window.ambMapInterval) clearInterval(window.ambMapInterval);
-    const ambs = [
-        L.marker([state.location.lat + 0.005, state.location.lng + 0.005], {icon: ambIcon}).addTo(window.mapInstance),
-        L.marker([state.location.lat - 0.003, state.location.lng + 0.008], {icon: ambIcon}).addTo(window.mapInstance),
-        L.marker([state.location.lat + 0.007, state.location.lng - 0.004], {icon: ambIcon}).addTo(window.mapInstance)
-    ];
-    ambs.forEach((amb, i) => {
-        amb.bindPopup(`
+    
+    let ambs = [];
+    for(let i=0; i < Math.min(activeAmbulances, 10); i++) {
+        const offsetLat = (Math.random() - 0.5) * 0.02;
+        const offsetLng = (Math.random() - 0.5) * 0.02;
+        const m = L.marker([state.location.lat + offsetLat, state.location.lng + offsetLng], {icon: ambIcon}).addTo(window.mapInstance);
+        m.bindPopup(`
             <div class="p-1 min-w-[140px]">
-                <div class="text-xs font-black text-blue-900">${ambData[i].type}</div>
-                <div class="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest">${ambData[i].plate}</div>
-                <div class="text-[11px] font-black text-green-600 mt-2">Contact: ${ambData[i].phone}</div>
-                <div class="text-[10px] font-bold text-slate-600 mt-1 pb-1 border-b border-slate-100">Est. Cost: ${ambData[i].cost}</div>
-                <div class="text-[9px] font-bold text-slate-400 mt-1 uppercase">Dispatched From: <br/>${ambData[i].hospital}</div>
+                <div class="text-xs font-black text-blue-900">Emergency Response</div>
+                <div class="text-[11px] font-black text-green-600 mt-2">Call 108</div>
             </div>
         `);
-    });
-    let angle = 0;
+        ambs.push({ marker: m, angle: Math.random() * Math.PI * 2, radius: 0.005 + Math.random() * 0.01 });
+    }
+
     window.ambMapInterval = setInterval(() => {
-        angle += 0.05;
-        ambs[0].setLatLng([state.location.lat + Math.sin(angle)*0.005, state.location.lng + Math.cos(angle)*0.005]);
-        ambs[1].setLatLng([state.location.lat - 0.003 + Math.cos(angle)*0.003, state.location.lng + 0.008 + Math.sin(angle)*0.003]);
-        ambs[2].setLatLng([state.location.lat + 0.007 + Math.sin(angle)*0.004, state.location.lng - 0.004 + Math.cos(angle)*0.004]);
+        ambs.forEach(a => {
+            a.angle += 0.02;
+            a.marker.setLatLng([
+                state.location.lat + Math.sin(a.angle) * a.radius, 
+                state.location.lng + Math.cos(a.angle) * a.radius
+            ]);
+        });
     }, 1000);
 };
 
@@ -803,7 +821,7 @@ window.renderList = () => {
         if (!query) return true;
         const nameMatch = (h.name || '').toLowerCase().includes(query);
         const specMatch = (h.specialty || '').toLowerCase().includes(query) || (h.specialty || '').toLowerCase().includes(mappedQuery);
-        const docMatch = (h.doctorsList || []).some(d => (d.type || '').toLowerCase().includes(query) || (d.type || '').toLowerCase().includes(mappedQuery));
+        const docMatch = (h.doctorsList || []).some(d => (d.type || '').toLowerCase().includes(query) || (d.type || '').toLowerCase().includes(mappedQuery) || (d.name || '').toLowerCase().includes(query));
         return nameMatch || specMatch || docMatch;
     });
     let html = `
@@ -820,7 +838,7 @@ window.renderList = () => {
             ${h.isCloudSynced ? `<div class="absolute top-0 right-0 bg-blue-500 text-white text-[7px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest shadow-md">Live Verified</div>` : ''}
             <div class="flex justify-between items-start">
                 <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
+                    <div class="w-12 h-12 ${h.isCloudSynced ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-400'} rounded-2xl flex items-center justify-center">
                         <i data-lucide="hospital" class="w-6 h-6"></i>
                     </div>
                     <div class="max-w-[140px]">
@@ -836,6 +854,7 @@ window.renderList = () => {
             <div class="flex gap-2 border-t border-slate-50 pt-3 mt-4">
                 <span class="text-[8px] font-black text-slate-500 bg-slate-100 px-2 py-1 rounded-lg uppercase">${h.beds} ${t().beds}</span>
                 <span class="text-[8px] font-black text-red-500 bg-red-50 px-2 py-1 rounded-lg uppercase">${h.icuBeds} ICU</span>
+                <span class="text-[8px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-lg uppercase">${h.ambulances || 0} AMB</span>
             </div>
         </div>
     `).join('');
@@ -876,7 +895,7 @@ window.renderBloodList = () => {
                 ${Object.entries(h.blood||{'O+':0,'O-':0,'A+':0,'A-':0,'B+':0,'B-':0,'AB+':0,'AB-':0}).map(([type,q])=>`
                     <div class="p-2 bg-slate-50 rounded-xl text-center border border-slate-100">
                         <p class="text-[10px] font-black text-slate-800">${type}</p>
-                        <p class="text-[9px] font-bold ${q>0?'text-green-600':'text-red-500'}">${q}u</p>
+                        <p class="text-[9px] font-bold ${q>0 && h.isCloudSynced ? 'text-green-600' : 'text-slate-400'}">${q}u</p>
                     </div>
                 `).join('')}
             </div>
@@ -941,14 +960,18 @@ function FirstAidView() {
 window.renderPopupInnerHtml = () => {
     const h = state.hospitals.find(x => x.id === state.viewingHospitalDetail);
     if (!h) return '';
-    const docs = h.doctorsList || [{type: 'General Physician', price: h.cost || 500}];
+    const docs = (h.doctorsList || []).filter(d => d.present);
+    
     return `
-        <div class="p-6 bg-blue-600 text-white relative">
+        <div class="p-6 ${h.isCloudSynced ? 'bg-blue-600' : 'bg-slate-800'} text-white relative">
             <button onclick="window.setState({viewingHospitalDetail: null}, true)" class="absolute right-6 top-6 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
             <div class="flex items-center gap-2 mb-2">
-                <span class="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-0.5 bg-white/20 rounded-md live-badge">${h.isCloudSynced ? 'Live Sync' : t().liveStatus}</span>
+                ${h.isCloudSynced 
+                    ? `<span class="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-0.5 bg-white/20 rounded-md live-badge">Live Sync</span>`
+                    : `<span class="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-0.5 bg-white/20 rounded-md text-slate-300">Unverified Facility</span>`
+                }
             </div>
             <h2 class="text-2xl font-black leading-tight mb-1">${h.name || 'Hospital Details'}</h2>
             <p class="text-sm font-medium opacity-90 flex items-center gap-1">
@@ -959,60 +982,76 @@ window.renderPopupInnerHtml = () => {
             </p>
         </div>
         <div class="p-6 space-y-6">
+            
             <div class="mt-2 space-y-4">
                 <div>
                     <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Emergency Contact</h4>
                     <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
                         <span class="text-xs font-bold text-slate-700">Hospital Desk</span>
-                        <span class="text-xs font-black text-blue-600">${h.phone || '108'}</span>
+                        <span class="text-xs font-black ${h.phone ? 'text-blue-600' : 'text-slate-400'}">${h.phone || 'N/A'}</span>
                     </div>
                 </div>
             </div>
-            <div class="grid grid-cols-3 gap-3">
-                <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center">
-                    <span class="text-2xl font-black text-blue-600">${h.beds || 0}</span>
+
+            <div class="grid grid-cols-4 gap-2">
+                <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center justify-center text-center">
+                    <span class="text-xl font-black text-blue-600">${h.beds || 0}</span>
                     <span class="text-[8px] font-black uppercase text-slate-400 mt-1">${t().beds}</span>
                 </div>
-                <div class="p-4 bg-red-50 rounded-2xl border border-red-100 flex flex-col items-center">
-                    <span class="text-2xl font-black text-red-600">${h.icuBeds || 0}</span>
+                <div class="p-3 bg-red-50 rounded-2xl border border-red-100 flex flex-col items-center justify-center text-center">
+                    <span class="text-xl font-black text-red-600">${h.icuBeds || 0}</span>
                     <span class="text-[8px] font-black uppercase text-slate-400 mt-1">${t().icuBeds}</span>
                 </div>
-                <div class="p-4 bg-teal-50 rounded-2xl border border-teal-100 flex flex-col items-center">
-                    <span class="text-2xl font-black text-teal-600">${h.ventilators || 0}</span>
+                <div class="p-3 bg-teal-50 rounded-2xl border border-teal-100 flex flex-col items-center justify-center text-center">
+                    <span class="text-xl font-black text-teal-600">${h.ventilators || 0}</span>
                     <span class="text-[8px] font-black uppercase text-slate-400 mt-1">${t().ventilators}</span>
                 </div>
-            </div>
-            <div class="mt-6">
-                <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1">
-                    <i data-lucide="stethoscope" class="w-3 h-3"></i> Specialists & Pricing
-                </h4>
-                <div class="space-y-2">
-                    ${docs.map(d => `
-                        <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
-                            <span class="text-xs font-bold text-slate-700">${d.type}</span>
-                            <span class="text-xs font-black text-green-600">₹${d.price}</span>
-                        </div>
-                    `).join('')}
+                <div class="p-3 bg-amber-50 rounded-2xl border border-amber-100 flex flex-col items-center justify-center text-center">
+                    <span class="text-xl font-black text-amber-600">${h.ambulances || 0}</span>
+                    <span class="text-[8px] font-black uppercase text-slate-400 mt-1">Ambulance</span>
                 </div>
             </div>
+
+            <div class="mt-6">
+                <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1">
+                    <i data-lucide="stethoscope" class="w-3 h-3"></i> Available Doctors
+                </h4>
+                <div class="space-y-2">
+                    ${docs.length > 0 ? docs.map(d => `
+                        <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                            <div>
+                                <p class="text-xs font-bold text-slate-800">${d.name}</p>
+                                <p class="text-[9px] font-bold text-slate-400">${d.type || 'Specialist'}</p>
+                            </div>
+                            <span class="text-xs font-black text-green-600">₹${d.price}</span>
+                        </div>
+                    `).join('') : `
+                        <div class="p-4 text-center border border-dashed border-slate-200 rounded-xl">
+                            <p class="text-xs font-bold text-slate-400">No active doctors found.</p>
+                        </div>
+                    `}
+                </div>
+            </div>
+
             <div class="space-y-4">
                 <div>
                     <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">${t().bloodBank}</h4>
                     <div class="grid grid-cols-4 gap-2">
-                        ${Object.entries(h.blood || {}).map(([type, qty]) => `
+                        ${Object.entries(h.blood || {'O+':0,'O-':0,'A+':0,'A-':0,'B+':0,'B-':0,'AB+':0,'AB-':0}).map(([type, qty]) => `
                             <div class="p-2 bg-slate-50 rounded-xl text-center border border-slate-100">
                                 <p class="text-[10px] font-black text-slate-800">${type}</p>
-                                <p class="text-[9px] font-bold ${qty > 0 ? 'text-green-600' : 'text-red-500'}">${qty}u</p>
+                                <p class="text-[9px] font-bold ${qty > 0 && h.isCloudSynced ? 'text-green-600' : 'text-slate-400'}">${qty}u</p>
                             </div>
                         `).join('')}
                     </div>
                 </div>
             </div>
+
             <div class="flex gap-3 pt-4 pb-safe">
-                <a href="tel:${h.phone || '108'}" class="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black text-center text-sm uppercase active:scale-95 transition-transform flex items-center justify-center gap-2">
+                <a href="tel:${h.phone || '108'}" class="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black text-center text-sm uppercase active:scale-95 transition-transform flex items-center justify-center gap-2 shadow-lg shadow-red-500/30">
                     <i data-lucide="phone" class="w-4 h-4"></i> Call
                 </a>
-                <button onclick="window.handleNavigation('${h.id}')" class="flex-[1.5] py-4 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase active:scale-95 transition-transform flex items-center justify-center gap-2">
+                <button onclick="window.handleNavigation('${h.id}')" class="flex-[1.5] py-4 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase active:scale-95 transition-transform flex items-center justify-center gap-2 shadow-lg shadow-blue-500/30">
                     <i data-lucide="navigation" class="w-4 h-4"></i> ${t().openMaps}
                 </button>
             </div>
@@ -1176,7 +1215,7 @@ function AdminPanelView() {
                     </div>
                     <div id="dept-list" class="space-y-1">
                         ${(h.departments || []).map(dept => {
-                            const count = (h.staff || []).filter(d => d.dept === dept.id && d.present).length;
+                            const count = (h.doctorsList || []).filter(d => d.dept === dept.id && d.present).length;
                             const isActive = state.adminUi.activeDeptId === dept.id;
                             return `
                                 <button onclick="window.setActiveDept('${dept.id}')" class="w-full flex items-center justify-between p-3 rounded-xl transition-all ${isActive ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100' : 'hover:bg-slate-50 text-slate-600'}">
@@ -1204,10 +1243,10 @@ function AdminPanelView() {
                     <div class="p-4 bg-slate-900 rounded-2xl text-white shadow-xl shadow-slate-200">
                         <div class="space-y-4" id="resource-container">
                             ${[
-                                { id: 'icuBeds', label: 'ICU BEDS', icon: 'fa-bed-pulse', color: 'blue', current: h.icuBeds, total: h.assetTotals?.icuBeds || 50 },
-                                { id: 'ventilators', label: 'VENTILATORS', icon: 'fa-wind', color: 'cyan', current: h.ventilators, total: h.assetTotals?.ventilators || 20 }
+                                { id: 'icuBeds', label: 'ICU BEDS', icon: 'fa-bed-pulse', color: 'blue', current: h.icuBeds, total: h.assetTotals?.icuBeds || 0 },
+                                { id: 'ventilators', label: 'VENTILATORS', icon: 'fa-wind', color: 'cyan', current: h.ventilators, total: h.assetTotals?.ventilators || 0 }
                             ].map(item => {
-                                const pct = (item.current / item.total) * 100;
+                                const pct = item.total > 0 ? (item.current / item.total) * 100 : 0;
                                 const isCritical = item.current < (item.id === 'icuBeds' ? 5 : 3);
                                 return `
                                     <div>
@@ -1281,20 +1320,22 @@ function AdminPanelView() {
                             <span class="text-[10px] text-slate-400 uppercase font-bold">Beds</span>
                         </div>
                     </div>
-                    <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
-                        <div class="flex justify-between items-start mb-3 text-emerald-500">
-                            <i class="fa-solid fa-user-doctor text-xl"></i>
-                            <span class="text-[9px] font-bold text-slate-400 tracking-widest uppercase">Staffing</span>
+                    <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-center">
+                        <div class="flex justify-between items-start mb-2 text-amber-500">
+                            <i class="fa-solid fa-truck-medical text-lg"></i>
+                            <span class="text-[8px] font-bold text-slate-400 tracking-widest uppercase">Emergency</span>
                         </div>
-                        <p class="text-2xl font-extrabold" id="stat-active-staff">${(h.staff||[]).filter(s=>s.present).length}</p>
-                        <p class="text-[10px] text-slate-400 uppercase font-bold mt-1">Active Personnel</p>
+                        <div class="flex items-center gap-2">
+                            <input id="admin-amb-${h.id}" type="number" value="${h.ambulances || 0}" oninput="window.updateHospitalStat('${h.id}', 'ambulances', this.value)" class="text-2xl font-extrabold w-16 bg-transparent outline-none text-slate-800">
+                            <span class="text-[10px] text-slate-400 uppercase font-bold">Ambulance</span>
+                        </div>
                     </div>
                     <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
                         <div class="flex justify-between items-start mb-3 text-red-500">
                             <i class="fa-solid fa-heart-pulse text-xl"></i>
                             <span class="text-[9px] font-bold text-slate-400 tracking-widest uppercase">Capacity</span>
                         </div>
-                        <p class="text-2xl font-extrabold" id="stat-icu-usage">${Math.round((h.icuBeds / (h.assetTotals?.icuBeds || 50)) * 100) || 0}%</p>
+                        <p class="text-2xl font-extrabold" id="stat-icu-usage">${h.assetTotals && h.assetTotals.icuBeds > 0 ? Math.round((h.icuBeds / h.assetTotals.icuBeds) * 100) : 0}%</p>
                         <p class="text-[10px] text-slate-400 uppercase font-bold mt-1">ICU Occupancy</p>
                     </div>
                 </div>
@@ -1320,8 +1361,7 @@ function AdminPanelView() {
                     </div>
                 </div>
 
-                <div id="doctor-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5"></div>
-                <div id="alert-zone" class="mt-8"></div>
+                <div id="doctor-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 pb-20"></div>
             </main>
         </div>
 
