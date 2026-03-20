@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Lifeline India | Medical Command</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="flex justify-center items-start min-h-screen relative">
+    
+    <div id="app-container" class="relative overflow-hidden flex flex-col"></div>
+
+    <datalist id="specialties-list">
+        <option value="General Physician"></option>
+        <option value="Cardiologist"></option>
+        <option value="Neurologist"></option>
+        <option value="Orthopedic Surgeon"></option>
+        <option value="Pediatrician"></option>
+        <option value="Gynecologist"></option>
+        <option value="Dermatologist"></option>
+        <option value="Emergency Specialist"></option>
+        <option value="Pulmonologist"></option>
+        <option value="Gastroenterologist"></option>
+    </datalist>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>

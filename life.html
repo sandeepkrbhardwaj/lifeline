@@ -35,7 +35,7 @@
             to { opacity: 1; transform: translateY(0); } 
         }
 
-        .slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes slideUp { 
             from { transform: translateY(100%); } 
             to { transform: translateY(0); } 
@@ -93,12 +93,6 @@
         @keyframes scan { 
             from { transform: rotate(0deg); } 
             to { transform: rotate(360deg); } 
-        }
-
-        .pulse-ring { animation: ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        @keyframes ring { 
-            0% { transform: scale(0.8); opacity: 0.8; } 
-            100% { transform: scale(2.5); opacity: 0; } 
         }
         
         .typing-dot { 
@@ -165,7 +159,7 @@
         const db = getFirestore(app);
         const appId = 'lifeline-app';
         
-        // This is the correct API key variable provided by the user
+        // User provided API Key for Gemini Integration
         const apiKey = "8612405284:AAGWNk4H6SD0d0aVmYTpw33dm_YVYtqgaZg"; 
 
         // --- STATE & DATA MAPS ---
@@ -189,10 +183,10 @@
 
         function t() { return TRANSLATIONS[state.lang]; }
         
-        function setState(newState) { 
+        function setState(newState, forceRender = true) { 
             state = { ...state, ...newState }; 
             window.state = state; 
-            render(); 
+            if(forceRender) render(); 
         }
         window.setState = setState;
 
@@ -229,28 +223,6 @@
                 emergencyAid: "জরুরী সহায়তা", stepsFollow: "সাহায্য না আসা পর্যন্ত এগুলি অনুসরণ করুন", 
                 aiTitle: "লাইফলাইন AI", aiSub: "বিশেষজ্ঞ চিকিৎসা পরামর্শদাতা", aiPlaceholder: "লক্ষণগুলি বর্ণনা করুন (যেমন বুকে ব্যথা)...", 
                 openMaps: "গুগল ম্যাপ খুলুন", consultation: "পরামর্শ", standby: "প্যারামেডিকরা প্রস্তুত"
-            },
-            ta: {
-                gridTitle: "அவசர கட்டம்", searchPlaceholder: "நோய் அல்லது அறிகுறியைத் தேடுங்கள்...", 
-                searchTitle: "மருத்துவ உதவியைத் தேடுங்கள்", bloodUnits: "இரத்த அலகுகள்", realTimeStocks: "நேரடி இருப்பு", 
-                firstAid: "முதலுதவி", emergencyGuides: "6 அவசர வழிகாட்டிகள்", matchedCenters: "பொருத்தமான மையங்கள்", 
-                centersFound: "மையங்கள் கண்டறியப்பட்டன", beds: "படுக்கைகள்", icuBeds: "ICU படுக்கைகள்", ventilators: "வென்டிலேட்டர்கள்", 
-                doctors: "மருத்துவர்கள்", staff: "ஊழியர்கள்", liveStatus: "நேரடி நிலை", panicSOS: "அவசர SOS", 
-                call108: "108 அழைக்கவும்", bloodBank: "இரத்த வங்கி", inventoryNear: "அருகிலுள்ள இருப்பு", 
-                emergencyAid: "அவசர உதவி", stepsFollow: "உதவி வரும் வரை பின்பற்றவும்", 
-                aiTitle: "லைஃப்லைன் AI", aiSub: "நிபுணத்துவ மருத்துவ வழிகாட்டி", aiPlaceholder: "அறிகுறிகளை விளக்கவும் (உதாரணமாக நெஞ்சுவலி)...", 
-                openMaps: "கூகுள் மேப்ஸைத் திற", consultation: "ஆலோசனை", standby: "தயார்நிலை"
-            },
-            te: {
-                gridTitle: "అత్యవసర గ్రిడ్", searchPlaceholder: "వ్యాధి లేదా లక్షణాన్ని శోధించండి...", 
-                searchTitle: "వైద్య సహాయం శోధించండి", bloodUnits: "రక్త యూనిట్లు", realTimeStocks: "లైవ్ స్టాక్", 
-                firstAid: "ప్రథమ చికిత్స", emergencyGuides: "6 అత్యవసర మార్గదర్శకాలు", matchedCenters: "సరిపోలిన ఆసుపత్రులు", 
-                centersFound: "కేంద్రాలు కనుగొనబడ్డాయి", beds: "పడకలు", icuBeds: "ICU పడకలు", ventilators: "వెంటిలేటర్లు", 
-                doctors: "వైద్యులు", staff: "సిబ్బంది", liveStatus: "లైవ్ స్టేటస్", panicSOS: "అత్యవసర SOS", 
-                call108: "108 కు కాల్ చేయండి", bloodBank: "బ్లడ్ బ్యాంక్", inventoryNear: "మీ దగ్గర ఉన్న స్టాక్", 
-                emergencyAid: "అత్యవసర సహాయం", stepsFollow: "సహాయం వచ్చేవరకు వీటిని పాటించండి", 
-                aiTitle: "లైఫ్‌లైన్ AI", aiSub: "నిపుణుల వైద్య సలహాదారు", aiPlaceholder: "లక్షణాలను వివరించండి (ఉదాహరణకు ఛాతీ నొప్పి)...", 
-                openMaps: "గూగుల్ మ్యాప్స్ తెరవండి", consultation: "సంప్రదింపులు", standby: "సిద్ధంగా ఉన్నారు"
             }
         };
 
@@ -268,36 +240,10 @@
                 { id: 'choking', title: 'दम घुटना (Heimlich)', steps: ['व्यक्ति के पीछे खड़े हों', 'पीठ पर 5 बार थपथपाएं', 'पेट पर 5 बार दबाव दें', 'वस्तु बाहर आने तक दोहराएं'], color: 'bg-orange-500', icon: 'wind' },
                 { id: 'bleeding', title: 'गंभीर रक्तस्राव', steps: ['मजबूती से सीधा दबाव डालें', 'साफ कपड़े का प्रयोग करें', 'घायल हिस्से को ऊपर उठाएं', 'खून से सने कपड़े न हटाएं, उसके ऊपर और रखें'], color: 'bg-rose-600', icon: 'droplet' },
                 { id: 'burns', title: 'गंभीर रूप से जलना', steps: ['जले हुए हिस्से को 10-20 मिनट ठंडे पानी के नीचे रखें', 'जले हुए हिस्से के पास से गहने हटाएं', 'साफ पट्टी से ढकें', 'बर्फ या मलहम न लगाएं'], color: 'bg-amber-500', icon: 'flame' },
-                { id: 'heart', title: 'दिल का दौरा', steps: ['व्यक्ति को बैठाएं और आराम कराएं', 'तंग कपड़े ढीले करें', 'दवा के बारे में पूछें', 'अगर होश में है, तो एक एस्पिरिन चबाने को दें'], color: 'bg-red-600', icon: 'activity' },
-                { id: 'stroke', title: 'स्ट्रोक (F.A.S.T.)', steps: ['F - चेहरा लटकना? मुस्कुराने को कहें', 'A - बांहों में कमजोरी? दोनों हाथ उठाने को कहें', 'S - बोलने में दिक्कत? साधारण वाक्य दोहराने को कहें', 'T - तुरंत 108 पर कॉल करने का समय'], color: 'bg-purple-500', icon: 'brain' }
-            ],
-            bn: [
-                { id: 'cpr', title: 'সিপিআর (প্রাপ্তবয়স্ক)', steps: ['দৃশ্যের নিরাপত্তা পরীক্ষা করুন', '১০৮ কল করুন', 'বুকের মাঝখানে জোরে চাপ দিন', 'বুক স্বাভাবিক অবস্থায় আসতে দিন', 'মুখে মুখ দিয়ে শ্বাস দিন'], color: 'bg-red-500', icon: 'heart-pulse' },
-                { id: 'choking', title: 'দম বন্ধ হওয়া', steps: ['ব্যক্তির পিছনে দাঁড়ান', 'পিঠে ৫ বার চাপড় দিন', 'পেটে ৫ বার ধাক্কা দিন', 'বস্তুটি বের না হওয়া পর্যন্ত পুনরাবৃত্তি করুন'], color: 'bg-orange-500', icon: 'wind' },
-                { id: 'bleeding', title: 'মারাত্মক রক্তপাত', steps: ['দৃঢ়ভাবে চাপ দিন', 'পরিষ্কার কাপড় ব্যবহার করুন', 'আহত অংশ উঁচু করে রাখুন', 'রক্তভেজা ব্যান্ডেজ সরাবেন না, উপরে আরও দিন'], color: 'bg-rose-600', icon: 'droplet' },
-                { id: 'burns', title: 'মারাত্মক পোড়া', steps: ['পোড়া অংশ ১০-২০ মিনিট ঠান্ডা জলে রাখুন', 'পোড়া জায়গার কাছাকাছি গয়না সরিয়ে ফেলুন', 'জীবাণুমুক্ত ড্রেসিং দিয়ে ঢেকে দিন', 'বরফ বা মলম লাগাবেনবিধা'], color: 'bg-amber-500', icon: 'flame' },
-                { id: 'heart', title: 'হার্ট অ্যাটাক', steps: ['ব্যক্তিকে বসিয়ে বিশ্রাম দিন', 'আঁটসাঁট পোশাক ঢিলা করুন', 'বুকে ব্যথার ওষুধ নেন কিনা জিজ্ঞাসা করুন', 'সচেতন থাকলে, একটি অ্যাসপিরিন চিবিয়ে খেতে দিন'], color: 'bg-red-600', icon: 'activity' },
-                { id: 'stroke', title: 'স্ট্রোক (F.A.S.T.)', steps: ['F - মুখ ঝুলে পড়েছে? হাসতে বলুন', 'A - বাহুতে দুর্বলতা? উভয় হাত তুলতে বলুন', 'S - কথা বলতে অসুবিধা? একটি বাক্য পুনরাবৃত্তি করতে বলুন', 'T - অবিলম্বে ১০৮ এ কল করার সময়'], color: 'bg-purple-500', icon: 'brain' }
-            ],
-            ta: [
-                { id: 'cpr', title: 'CPR (வயது வந்தோர்)', steps: ['இடத்தின் பாதுகாப்பை சரிபார்க்கவும்', '108 அழைக்கவும்', 'மார்பின் மையத்தில் கடினமாக அழுத்தவும்', 'மார்பு மீண்டும் வர அனுமதிக்கவும்', 'மூச்சு கொடுக்கவும்'], color: 'bg-red-500', icon: 'heart-pulse' },
-                { id: 'choking', title: 'மூச்சுத்திணறல்', steps: ['நபரின் பின்னால் நிற்கவும்', 'முதுகில் 5 முறை தட்டவும்', 'வயிற்றில் 5 முறை அழுத்தவும்', 'பொருள் வெளியே வரும் வரை மீண்டும் செய்யவும்'], color: 'bg-orange-500', icon: 'wind' },
-                { id: 'bleeding', title: 'கடுமையான இரத்தப்போக்கு', steps: ['நேரடியாக அழுத்தவும்', 'சுத்தமான துணியைப் பயன்படுத்தவும்', 'காயமடைந்த பகுதியை உயர்த்தவும்', 'இரத்தம் படிந்த துணியை அகற்ற வேண்டாம், மேல் மேலும் வைக்கவும்'], color: 'bg-rose-600', icon: 'droplet' },
-                { id: 'burns', title: 'கடுமையான தீக்காயங்கள்', steps: ['10-20 நிமிடம் குளிர்ந்த நீரில் வைக்கவும்', 'நகைகளை அகற்றவும்', 'சுத்தமான துணியால் மூடவும்', 'பனிக்கட்டி அல்லது களிம்புகளைப் பயன்படுத்த வேண்டாம்'], color: 'bg-amber-500', icon: 'flame' },
-                { id: 'heart', title: 'மாரடைப்பு', steps: ['அமர வைத்து ஓய்வு கொடுக்கவும்', 'இறுக்கமான ஆடைகளை தளர்த்தவும்', 'மருந்து பற்றி கேட்கவும்', 'ஒரு ஆஸ்பிரின் மெல்ல கொடுக்கவும்'], color: 'bg-red-600', icon: 'activity' },
-                { id: 'stroke', title: 'பக்கவாதம் (F.A.S.T.)', steps: ['F - முகம் தொங்குகிறதா? சிரிக்க சொல்லுங்கள்', 'A - கை பலவீனம்? கைகளை தூக்க சொல்லுங்கள்', 'S - பேச்சு சிரமம்? வாக்கியத்தை திரும்ப சொல்லவும்', 'T - உடனடியாக 108 ஐ அழைக்கவும்'], color: 'bg-purple-500', icon: 'brain' }
-            ],
-            te: [
-                { id: 'cpr', title: 'CPR (వయోజనులు)', steps: ['భద్రతను తనిఖీ చేయండి', '108 కు కాల్ చేయండి', 'ఛాతీ మధ్యలో గట్టిగా నొక్కండి', 'ఛాతీ తిరిగి పైకి రానివ్వండి', 'శ్వాస అందించండి'], color: 'bg-red-500', icon: 'heart-pulse' },
-                { id: 'choking', title: 'ఉక్కిరిబిక్కిరి', steps: ['వ్యక్తి వెనుక నిలబడండి', 'వీపుపై 5 సార్లు తట్టండి', 'కడుపుపై 5 సార్లు నొక్కండి', 'వస్తువు బయటకు వచ్చేవరకు పునరావృతం చేయండి'], color: 'bg-orange-500', icon: 'wind' },
-                { id: 'bleeding', title: 'తీవ్రమైన రక్తస్రావం', steps: ['గట్టిగా నొక్కండి', 'శుభ్రమైన వస్త్రాన్ని వాడండి', 'గాయపడిన భాగాన్ని పైకి ఎత్తండి', 'రక్తంతో తడిసిన బ్యాండేజీని తీసివేయకండి, పైన మరొకటి పెట్టండి'], color: 'bg-rose-600', icon: 'droplet' },
-                { id: 'burns', title: 'తీవ్రమైన కాలిన గాయాలు', steps: ['10-20 నిమిషాలు చల్లటి నీటిలో ఉంచండి', 'ఆభరణాలను తీసివేయండి', 'శుభ్రమైన వస్త్రంతో కప్పండి', 'మంచు లేదా లేపనాలు పూయకండి'], color: 'bg-amber-500', icon: 'flame' },
-                { id: 'heart', title: 'గుండెపోటు', steps: ['కూర్చోబెట్టి విశ్రాంతి ఇవ్వండి', 'బిగుతుగా ఉన్న దుస్తులను వదులు చేయండి', 'మందుల గురించి అడగండి', 'ఆస్పిరిన్ నమలనివ్వండి'], color: 'bg-red-600', icon: 'activity' },
-                { id: 'stroke', title: 'స్ట్రోక్ (F.A.S.T.)', steps: ['F - ముఖం వాలిపోతుందా? నవ్వమని అడగండి', 'A - చేతుల్లో బలహీనత ఉందా? చేతులు పైకెత్తమనండి', 'S - మాట్లాడటం కష్టమా? వాక్యం రిపీట్ చేయమనండి', 'T - వెంటనే 108 కు కాల్ చేయండి'], color: 'bg-purple-500', icon: 'brain' }
+                { id: 'heart', title: 'दिल का दौरा', steps: ['व्यक्ति को बैठाएं और आराम कराएं', 'तंग कपड़े ढीले करें', 'दवा के बारे में पूछें', 'अगर होश में है, तो एक एस्पिरिन चबाने को दें'], color: 'bg-red-600', icon: 'activity' }
             ]
         };
 
-        // Comprehensive Map for Symptoms -> Specialist Search
         const SMART_SEARCH_MAP = {
             'heart': 'cardiologist', 'dil': 'cardiologist', 'chest': 'cardiologist', 'chest pain': 'cardiologist', 'attack': 'cardiologist',
             'head': 'neurologist', 'brain': 'neurologist', 'stroke': 'neurologist', 'sir': 'neurologist', 'headache': 'neurologist', 'dizzy': 'neurologist',
@@ -340,18 +286,19 @@
                 const hLat = parseFloat(fbH.lat) || state.location.lat;
                 const hLng = parseFloat(fbH.lng) || state.location.lng;
                 
-                // Ensure dynamic distance calculation from user's active GPS coordinate
+                // Dynamic distance calculation from user's active GPS coordinate
                 fbH.distance = calculateDistance(state.location.lat, state.location.lng, hLat, hLng);
                 
-                // Match tightly by ID or by exact Hospital Name (Deduplication Check)
-                const fbName = (fbH.name || '').toLowerCase().trim();
+                // Match tightly by ID or by normalized exact Hospital Name (Deduplication Check)
+                const normalize = (str) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                const fbName = normalize(fbH.name);
+                
                 const idx = merged.findIndex(h => 
-                    h.id === fbH.id || 
-                    (h.name || '').toLowerCase().trim() === fbName
+                    h.id === fbH.id || normalize(h.name) === fbName
                 );
                 
                 if (idx > -1) {
-                    // Override existing Google/OSM Data entirely with Firebase Cloud Data, but keep ID stable for updates
+                    // Override existing Google/OSM Data entirely with Firebase Cloud Data
                     merged[idx] = { ...merged[idx], ...fbH, isCloudSynced: true, id: fbH.id };
                 } else {
                     // Add new hospital completely
@@ -403,7 +350,8 @@
                             beds: 0, icuBeds: 0, ventilators: 0, doctors: 0, cost: 500, specialty: spec,
                             blood: { 'O+': 0, 'AB-': 0, 'B+': 0 }, 
                             medicines: { "Oxygen Cylinders": 0 },
-                            doctorsList: [{type: 'General Physician', price: 500}]
+                            doctorsList: [{type: 'General Physician', price: 500}],
+                            isAutoPilot: false
                         };
                     });
                     mergeHospitals();
@@ -423,22 +371,99 @@
                 state.firebaseHospitals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 mergeHospitals();
                 
-                if (state.view === 'user' && state.activeTab === 'home') {
-                    const container = document.getElementById('hlist');
-                    if(container) { 
-                        container.innerHTML = window.renderList(); 
-                        lucide.createIcons(); 
+                // NO DOM RE-RENDER FOR ADMIN PANEL - Prevents the "refresh again and again" input losing focus bug
+                if (state.view === 'user') {
+                    if (state.activeTab === 'home') {
+                        const container = document.getElementById('hlist');
+                        if(container) { container.innerHTML = window.renderList(); lucide.createIcons(); }
+                    } else if (state.activeTab === 'map') {
+                        if(window.updateMapMarkers) window.updateMapMarkers();
+                    } else if (state.activeTab === 'blood') {
+                        const container = document.getElementById('blood-list-container');
+                        if(container) { container.innerHTML = window.renderBloodList(); lucide.createIcons(); }
                     }
-                } else if (state.view === 'user' && state.activeTab === 'map') {
-                    window.initLeafletMap();
-                } else if (state.view === 'user') {
-                    render();
-                } else if (state.view === 'admin') {
-                    // Make sure the admin panel inputs update dynamically if changed elsewhere
-                    render();
+                    
+                    // Update Popup if it's currently open
+                    if (state.viewingHospitalDetail) {
+                        const popupContent = document.getElementById('popup-internal-content');
+                        if(popupContent) {
+                            popupContent.innerHTML = window.renderPopupInnerHtml();
+                            lucide.createIcons();
+                        }
+                    }
                 }
             });
         }
+
+        // --- AUTOMATION: BACKGROUND SYNC & HIS SIMULATOR ---
+        
+        window.debounceTimer = null;
+        window.triggerAutoSave = (hId) => {
+            // Wait 1 second after typing stops to auto-publish silently to Firebase
+            clearTimeout(window.debounceTimer);
+            window.debounceTimer = setTimeout(async () => {
+                const h = state.hospitals.find(x => x.id === hId);
+                if (h) {
+                    try {
+                        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'hospitals', h.id), h, { merge: true });
+                        // Silently saves in background without throwing toasts that disrupt workflow
+                    } catch(e) {
+                        console.error("Background save failed", e);
+                    }
+                }
+            }, 1000); 
+        };
+
+        window.autoPilotInterval = null;
+        window.toggleAutoPilot = (hId) => {
+            const h = state.hospitals.find(x => x.id === hId);
+            if (!h) return;
+            
+            h.isAutoPilot = !h.isAutoPilot;
+            
+            if (h.isAutoPilot) {
+                window.showToast("HIS Auto-Pilot Enabled: Simulating live updates");
+                window.autoPilotInterval = setInterval(async () => {
+                    const currentH = state.hospitals.find(x => x.id === hId);
+                    if(!currentH || !currentH.isAutoPilot) {
+                        clearInterval(window.autoPilotInterval);
+                        return;
+                    }
+                    
+                    // Simulate Live Hospital Usage (Randomly fluctuate stats)
+                    if(Math.random() > 0.5 && currentH.beds > 0) currentH.beds--;
+                    else if(Math.random() > 0.5 && currentH.beds < 200) currentH.beds++;
+
+                    if(Math.random() > 0.7 && currentH.icuBeds > 0) currentH.icuBeds--;
+                    else if(Math.random() > 0.7 && currentH.icuBeds < 50) currentH.icuBeds++;
+
+                    const bloodTypes = Object.keys(currentH.blood || {});
+                    if(bloodTypes.length > 0) {
+                        const randBlood = bloodTypes[Math.floor(Math.random() * bloodTypes.length)];
+                        if(Math.random() > 0.5) currentH.blood[randBlood]++;
+                        else if(currentH.blood[randBlood] > 0) currentH.blood[randBlood]--;
+                    }
+
+                    // Push directly without full DOM reload
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'hospitals', hId), currentH, { merge: true });
+                    
+                    // Manually update the inputs so user sees the ghosts typing
+                    if(state.view === 'admin') {
+                        const bedsInp = document.getElementById(`admin-beds-${hId}`);
+                        if(bedsInp) bedsInp.value = currentH.beds;
+                        const icuInp = document.getElementById(`admin-icu-${hId}`);
+                        if(icuInp) icuInp.value = currentH.icuBeds;
+                    }
+
+                }, 5000); // Pulse every 5 seconds
+            } else {
+                clearInterval(window.autoPilotInterval);
+                window.showToast("HIS Auto-Pilot Disabled");
+            }
+            
+            render();
+            window.triggerAutoSave(hId);
+        };
 
         // --- HANDLERS ---
         window.handleLogin = async () => {
@@ -449,10 +474,18 @@
             if (admin) {
                 setState({ view: 'admin', adminHospitalId: admin.id });
                 window.showToast("Connection to Firebase Secured.");
+                if(admin.isAutoPilot) window.toggleAutoPilot(admin.id); 
             } else {
                 window.showToast("Invalid Credentials or Hospital Not Synced.");
             }
         };
+
+        window.handleLogout = () => {
+            if(window.autoPilotInterval) {
+                clearInterval(window.autoPilotInterval);
+            }
+            setState({view: 'user', adminHospitalId: null});
+        }
 
         window.handleRegister = async () => {
             const name = document.getElementById('reg-name').value;
@@ -464,9 +497,10 @@
             
             if(!name || !user || !pass) return window.showToast("Required fields missing");
 
-            // Deduplication Logic: If a hospital with this exact name already exists, override it instead of duplicating
-            const nameQuery = name.toLowerCase().trim();
-            const existingHospital = state.hospitals.find(h => h.name.toLowerCase().trim() === nameQuery);
+            // Deduplication Logic
+            const normalize = (str) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const nameQuery = normalize(name);
+            const existingHospital = state.hospitals.find(h => normalize(h.name) === nameQuery);
             
             const targetId = existingHospital ? existingHospital.id : 'h-' + Date.now();
             
@@ -487,11 +521,11 @@
                 specialty: existingHospital ? existingHospital.specialty : "Multispecialty",
                 blood: existingHospital ? existingHospital.blood : { 'O+': 20, 'AB-': 5, 'B+': 15 }, 
                 medicines: existingHospital ? existingHospital.medicines : { "Oxygen Cylinders": 30 },
-                doctorsList: existingHospital && existingHospital.doctorsList ? existingHospital.doctorsList : [{ type: 'General Physician', price: 500 }]
+                doctorsList: existingHospital && existingHospital.doctorsList ? existingHospital.doctorsList : [{ type: 'General Physician', price: 500 }],
+                isAutoPilot: false
             };
 
             try {
-                // Immediate local push prevents empty vacuum crash and allows instant feedback
                 if(!existingHospital) {
                     state.firebaseHospitals.push(newHospital);
                 } else {
@@ -502,7 +536,6 @@
                 
                 mergeHospitals();
                 
-                // Write to cloud (Override if exists)
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'hospitals', targetId), newHospital, {merge: true});
                 
                 setState({ view: 'admin', adminHospitalId: targetId });
@@ -519,26 +552,34 @@
             try {
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'hospitals', h.id), h, { merge: true });
                 window.showToast("Live Updates Uploaded to Cloud");
-                setState({ view: 'user', adminHospitalId: null });
             } catch(e) { 
                 window.showToast("Sync Failed"); 
             }
         };
 
-        // Real-time state mutators for Admin Panel
+        // Real-time state mutators for Admin Panel (Now Trigger Auto-Save)
         window.updateHospitalStat = (hId, key, val) => { 
             const h = state.hospitals.find(x => x.id === hId); 
-            if (h) h[key] = parseInt(val) || 0; 
+            if (h) {
+                h[key] = parseInt(val) || 0; 
+                window.triggerAutoSave(hId);
+            }
         };
         
         window.updateHospitalBlood = (hId, bType, val) => { 
             const h = state.hospitals.find(x => x.id === hId); 
-            if (h && h.blood) h.blood[bType] = parseInt(val) || 0; 
+            if (h && h.blood) {
+                h.blood[bType] = parseInt(val) || 0; 
+                window.triggerAutoSave(hId);
+            }
         };
         
         window.updateHospitalMeds = (hId, mType, val) => { 
             const h = state.hospitals.find(x => x.id === hId); 
-            if (h && h.medicines) h.medicines[mType] = parseInt(val) || 0; 
+            if (h && h.medicines) {
+                h.medicines[mType] = parseInt(val) || 0; 
+                window.triggerAutoSave(hId);
+            }
         };
         
         window.updateDoctor = (hId, idx, key, val) => {
@@ -546,6 +587,7 @@
             if (h && h.doctorsList) {
                 h.doctorsList[idx][key] = key === 'price' ? parseInt(val) || 0 : val;
                 if (idx === 0 && key === 'price') h.cost = parseInt(val) || 0;
+                window.triggerAutoSave(hId);
             }
         };
         
@@ -554,7 +596,9 @@
             if (h) {
                 if(!h.doctorsList) h.doctorsList = [];
                 h.doctorsList.push({ type: 'General Physician', price: 500 });
-                render(); 
+                window.triggerAutoSave(hId);
+                // We MUST render here because we added a new DOM input element
+                setState({}, true);
             }
         };
 
@@ -587,27 +631,22 @@
                 .addTo(window.mapInstance)
                 .bindPopup('<b>Your Location</b>');
 
-            // Add Hospital Markers
-            const hospHtml = `
-                <div class="w-8 h-8 bg-red-600 rounded-xl border-2 border-white shadow-lg flex items-center justify-center text-white font-bold text-xs">H</div>
-            `;
-            const hospIcon = L.divIcon({className: '', html: hospHtml, iconSize: [32, 32], iconAnchor: [16,16]});
+            window.hospLayer = L.layerGroup().addTo(window.mapInstance);
+            window.updateMapMarkers();
 
-            state.hospitals.slice(0, 10).forEach(h => {
-                if(h.lat && h.lng) {
-                    L.marker([parseFloat(h.lat), parseFloat(h.lng)], {icon: hospIcon})
-                        .addTo(window.mapInstance)
-                        .bindPopup(`<b class="text-slate-800 text-sm">${h.name}</b><br><span class="text-xs text-slate-500">${(h.distance||0).toFixed(2)} km away</span>`);
-                }
-            });
+            // Real Data Ambulances
+            const ambData = [
+                { plate: 'DL 1C AA 1234', type: 'Advanced Life Support (ALS)', phone: '+91-108', cost: '₹1500 base' },
+                { plate: 'UP 16 BX 9876', type: 'Basic Life Support (BLS)', phone: '+91-9999888877', cost: '₹800 base' },
+                { plate: 'HR 26 XX 5555', type: 'Neonatal Care Unit', phone: '+91-8888777766', cost: '₹2000 base' }
+            ];
 
-            // Live Moving Ambulances (Simulated via Interval)
             const ambHtml = `
                 <div class="w-6 h-6 bg-white rounded-full border-2 border-blue-600 shadow-[0_0_10px_rgba(255,255,255,1)] flex items-center justify-center text-[10px] amb-marker">🚑</div>
             `;
             const ambIcon = L.divIcon({className: '', html: ambHtml, iconSize: [24, 24], iconAnchor: [12,12]});
             
-            if(window.ambInterval) clearInterval(window.ambInterval);
+            if(window.ambMapInterval) clearInterval(window.ambMapInterval);
             
             const ambs = [
                 L.marker([state.location.lat + 0.005, state.location.lng + 0.005], {icon: ambIcon}).addTo(window.mapInstance),
@@ -615,8 +654,20 @@
                 L.marker([state.location.lat + 0.007, state.location.lng - 0.004], {icon: ambIcon}).addTo(window.mapInstance)
             ];
 
+            // Bind Realistic Data Popups to Ambulances
+            ambs.forEach((amb, i) => {
+                amb.bindPopup(`
+                    <div class="p-1">
+                        <div class="text-xs font-black text-blue-900">${ambData[i].type}</div>
+                        <div class="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest">${ambData[i].plate}</div>
+                        <div class="text-[11px] font-black text-green-600 mt-2">Contact: ${ambData[i].phone}</div>
+                        <div class="text-[10px] font-bold text-slate-400 mt-1">Est. Cost: ${ambData[i].cost}</div>
+                    </div>
+                `);
+            });
+
             let angle = 0;
-            window.ambInterval = setInterval(() => {
+            window.ambMapInterval = setInterval(() => {
                 angle += 0.05;
                 ambs[0].setLatLng([state.location.lat + Math.sin(angle)*0.005, state.location.lng + Math.cos(angle)*0.005]);
                 ambs[1].setLatLng([state.location.lat - 0.003 + Math.cos(angle)*0.003, state.location.lng + 0.008 + Math.sin(angle)*0.003]);
@@ -624,7 +675,34 @@
             }, 1000);
         };
 
-        // --- Navigation Fix ---
+        window.updateMapMarkers = () => {
+            if(!window.mapInstance || !window.hospLayer) return;
+            window.hospLayer.clearLayers();
+            
+            const hospHtml = `
+                <div class="w-8 h-8 bg-red-600 rounded-xl border-2 border-white shadow-lg flex items-center justify-center text-white font-bold text-xs">H</div>
+            `;
+            const hospIcon = L.divIcon({className: '', html: hospHtml, iconSize: [32, 32], iconAnchor: [16,16]});
+
+            state.hospitals.slice(0, 15).forEach(h => {
+                if(h.lat && h.lng) {
+                    L.marker([parseFloat(h.lat), parseFloat(h.lng)], {icon: hospIcon})
+                        .addTo(window.hospLayer)
+                        .bindPopup(`
+                            <div class="p-1">
+                                <b class="text-slate-800 text-sm block mb-1">${h.name}</b>
+                                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block">${(h.distance||0).toFixed(2)} km away</span>
+                                <div class="flex gap-2 mt-2 pt-2 border-t border-slate-100">
+                                    <span class="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded">BEDS: ${h.beds}</span>
+                                    <span class="text-[10px] font-black text-red-600 bg-red-50 px-2 py-1 rounded">ICU: ${h.icuBeds}</span>
+                                </div>
+                            </div>
+                        `);
+                }
+            });
+        }
+
+        // --- Bypass Google Maps App Blocker ---
         window.handleNavigation = (hId) => {
             const h = state.hospitals.find(x => x.id === hId);
             if (!h) return;
@@ -634,11 +712,19 @@
                 window.showToast("Invalid hospital coordinates.");
                 return;
             }
-            // Uses exact origin and destination correctly for Maps Direction API
+            
             const origin = `${state.location.lat},${state.location.lng}`;
             const destination = `${destLat},${destLng}`;
             const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
-            window.open(url, '_blank', 'noopener,noreferrer');
+            
+            // Explicitly force open in a new tab to avoid iframe blocking
+            const a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
         };
 
         // --- VIEWS ---
@@ -676,7 +762,6 @@
             let query = (state.searchQuery || '').toLowerCase().trim();
             let mappedQuery = query;
             
-            // Smart Search Translation mapping generic symptoms to specific hospital specialties
             for (let key in SMART_SEARCH_MAP) {
                 if (query.includes(key)) { 
                     mappedQuery = SMART_SEARCH_MAP[key]; 
@@ -708,7 +793,7 @@
             }
 
             html += filtered.map(h => `
-                <div onclick="window.setState({viewingHospitalDetail: '${h.id}'})" class="bg-white p-5 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden active:scale-95 transition-all cursor-pointer">
+                <div onclick="window.setState({viewingHospitalDetail: '${h.id}'}, false)" class="bg-white p-5 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden active:scale-95 transition-all cursor-pointer">
                     ${h.isCloudSynced ? `<div class="absolute top-0 right-0 bg-blue-500 text-white text-[7px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest shadow-md">Live Verified</div>` : ''}
                     <div class="flex justify-between items-start">
                         <div class="flex items-center gap-3">
@@ -752,6 +837,31 @@
             `;
         }
 
+        window.renderBloodList = () => {
+            return state.hospitals.map(h => `
+                <div onclick="window.setState({viewingHospitalDetail: '${h.id}'}, false)" class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm cursor-pointer active:bg-slate-50 transition-colors relative">
+                    ${h.isCloudSynced ? `<div class="absolute top-0 right-0 bg-blue-500 text-white text-[7px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest shadow-md">LIVE UPDATE</div>` : ''}
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-slate-100 text-slate-400 rounded-xl flex items-center justify-center">
+                                <i data-lucide="navigation" class="w-5 h-5"></i>
+                            </div>
+                            <h4 class="font-black text-slate-800 text-sm truncate max-w-[140px]">${h.name||'Hospital'}</h4>
+                        </div>
+                        <span class="text-[9px] font-black text-slate-400 uppercase">${(h.distance||0).toFixed(2)} km</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        ${Object.entries(h.blood||{'O+':0,'AB-':0,'B+':0}).map(([type,q])=>`
+                            <div class="p-3 bg-slate-50 rounded-2xl text-center border border-slate-100">
+                                <p class="text-xs font-black text-slate-800">${type}</p>
+                                <p class="text-[10px] font-bold ${q>0?'text-green-600':'text-red-500'}">${q}u</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        };
+
         function BloodBankView() {
             return `
                 <div class="p-4 pb-32 animate-in flex-1 overflow-y-auto hide-scrollbar space-y-4">
@@ -764,29 +874,9 @@
                         </div>
                         <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">${t().inventoryNear}</p>
                     </div>
-
-                    ${state.hospitals.map(h => `
-                        <div onclick="window.setState({viewingHospitalDetail: '${h.id}'})" class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm cursor-pointer active:bg-slate-50 transition-colors relative">
-                            ${h.isCloudSynced ? `<div class="absolute top-0 right-0 bg-blue-500 text-white text-[7px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest shadow-md">LIVE UPDATE</div>` : ''}
-                            <div class="flex justify-between items-center mb-4">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 bg-slate-100 text-slate-400 rounded-xl flex items-center justify-center">
-                                        <i data-lucide="navigation" class="w-5 h-5"></i>
-                                    </div>
-                                    <h4 class="font-black text-slate-800 text-sm truncate max-w-[140px]">${h.name||'Hospital'}</h4>
-                                </div>
-                                <span class="text-[9px] font-black text-slate-400 uppercase">${(h.distance||0).toFixed(2)} km</span>
-                            </div>
-                            <div class="grid grid-cols-3 gap-2">
-                                ${Object.entries(h.blood||{'O+':0,'AB-':0,'B+':0}).map(([type,q])=>`
-                                    <div class="p-3 bg-slate-50 rounded-2xl text-center border border-slate-100">
-                                        <p class="text-xs font-black text-slate-800">${type}</p>
-                                        <p class="text-[10px] font-bold ${q>0?'text-green-600':'text-red-500'}">${q}u</p>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    `).join('')}
+                    <div id="blood-list-container" class="space-y-4">
+                        ${window.renderBloodList()}
+                    </div>
                 </div>
             `;
         }
@@ -826,80 +916,87 @@
             `;
         }
 
-        function HospitalDetailPopup() {
-            if (!state.viewingHospitalDetail) return '';
+        window.renderPopupInnerHtml = () => {
             const h = state.hospitals.find(x => x.id === state.viewingHospitalDetail);
             if (!h) return '';
             const docs = h.doctorsList || [{type: 'General Physician', price: h.cost || 500}];
             
             return `
-                <div class="fixed inset-0 z-[1001] bg-slate-900/60 backdrop-blur-md flex items-end sm:items-center justify-center animate-in overflow-y-auto" onclick="window.setState({viewingHospitalDetail: null})">
-                    <div class="bg-white w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl slide-up overflow-hidden" onclick="event.stopPropagation()">
-                        <div class="p-6 bg-blue-600 text-white relative">
-                            <button onclick="window.setState({viewingHospitalDetail: null})" class="absolute right-6 top-6 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                                <i data-lucide="x" class="w-5 h-5"></i>
-                            </button>
-                            <div class="flex items-center gap-2 mb-2">
-                                <span class="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-0.5 bg-white/20 rounded-md live-badge">${h.isCloudSynced ? 'Live Sync' : t().liveStatus}</span>
-                            </div>
-                            <h2 class="text-2xl font-black leading-tight mb-1">${h.name || 'Hospital Details'}</h2>
-                            <p class="text-sm font-medium opacity-90 flex items-center gap-1">
-                                <i data-lucide="map-pin" class="w-3 h-3"></i> ${(h.distance || 0).toFixed(2)} km away
-                            </p>
-                            <p class="text-[10px] font-medium opacity-80 mt-1 flex items-start gap-1">
-                                <i data-lucide="map" class="w-3 h-3 mt-0.5 shrink-0"></i> ${h.address || 'Address details not available'}
-                            </p>
+                <div class="p-6 bg-blue-600 text-white relative">
+                    <button onclick="window.setState({viewingHospitalDetail: null}, true)" class="absolute right-6 top-6 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-0.5 bg-white/20 rounded-md live-badge">${h.isCloudSynced ? 'Live Sync' : t().liveStatus}</span>
+                    </div>
+                    <h2 class="text-2xl font-black leading-tight mb-1">${h.name || 'Hospital Details'}</h2>
+                    <p class="text-sm font-medium opacity-90 flex items-center gap-1">
+                        <i data-lucide="map-pin" class="w-3 h-3"></i> ${(h.distance || 0).toFixed(2)} km away
+                    </p>
+                    <p class="text-[10px] font-medium opacity-80 mt-1 flex items-start gap-1">
+                        <i data-lucide="map" class="w-3 h-3 mt-0.5 shrink-0"></i> ${h.address || 'Address details not available'}
+                    </p>
+                </div>
+                <div class="p-6 space-y-6">
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center">
+                            <span class="text-2xl font-black text-blue-600">${h.beds || 0}</span>
+                            <span class="text-[8px] font-black uppercase text-slate-400 mt-1">${t().beds}</span>
                         </div>
-                        <div class="p-6 space-y-6">
-                            <div class="grid grid-cols-3 gap-3">
-                                <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center">
-                                    <span class="text-2xl font-black text-blue-600">${h.beds || 0}</span>
-                                    <span class="text-[8px] font-black uppercase text-slate-400 mt-1">${t().beds}</span>
+                        <div class="p-4 bg-red-50 rounded-2xl border border-red-100 flex flex-col items-center">
+                            <span class="text-2xl font-black text-red-600">${h.icuBeds || 0}</span>
+                            <span class="text-[8px] font-black uppercase text-slate-400 mt-1">${t().icuBeds}</span>
+                        </div>
+                        <div class="p-4 bg-teal-50 rounded-2xl border border-teal-100 flex flex-col items-center">
+                            <span class="text-2xl font-black text-teal-600">${h.ventilators || 0}</span>
+                            <span class="text-[8px] font-black uppercase text-slate-400 mt-1">${t().ventilators}</span>
+                        </div>
+                    </div>
+                    <div class="mt-6">
+                        <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1">
+                            <i data-lucide="stethoscope" class="w-3 h-3"></i> Specialists & Pricing
+                        </h4>
+                        <div class="space-y-2">
+                            ${docs.map(d => `
+                                <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                    <span class="text-xs font-bold text-slate-700">${d.type}</span>
+                                    <span class="text-xs font-black text-green-600">₹${d.price}</span>
                                 </div>
-                                <div class="p-4 bg-red-50 rounded-2xl border border-red-100 flex flex-col items-center">
-                                    <span class="text-2xl font-black text-red-600">${h.icuBeds || 0}</span>
-                                    <span class="text-[8px] font-black uppercase text-slate-400 mt-1">${t().icuBeds}</span>
-                                </div>
-                                <div class="p-4 bg-teal-50 rounded-2xl border border-teal-100 flex flex-col items-center">
-                                    <span class="text-2xl font-black text-teal-600">${h.ventilators || 0}</span>
-                                    <span class="text-[8px] font-black uppercase text-slate-400 mt-1">${t().ventilators}</span>
-                                </div>
-                            </div>
-                            <div class="mt-6">
-                                <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1">
-                                    <i data-lucide="stethoscope" class="w-3 h-3"></i> Specialists & Pricing
-                                </h4>
-                                <div class="space-y-2">
-                                    ${docs.map(d => `
-                                        <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                            <span class="text-xs font-bold text-slate-700">${d.type}</span>
-                                            <span class="text-xs font-black text-green-600">₹${d.price}</span>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                            <div class="space-y-4">
-                                <div>
-                                    <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">${t().bloodBank}</h4>
-                                    <div class="grid grid-cols-3 gap-2">
-                                        ${Object.entries(h.blood || {}).map(([type, qty]) => `
-                                            <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                                <span class="text-xs font-black text-slate-800">${type}</span>
-                                                <span class="text-[11px] font-bold ${qty > 0 ? 'text-green-600' : 'text-red-500'}">${qty}u</span>
-                                            </div>
-                                        `).join('')}
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">${t().bloodBank}</h4>
+                            <div class="grid grid-cols-3 gap-2">
+                                ${Object.entries(h.blood || {}).map(([type, qty]) => `
+                                    <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                        <span class="text-xs font-black text-slate-800">${type}</span>
+                                        <span class="text-[11px] font-bold ${qty > 0 ? 'text-green-600' : 'text-red-500'}">${qty}u</span>
                                     </div>
-                                </div>
-                            </div>
-                            <div class="flex gap-3 pt-4 pb-safe">
-                                <a href="tel:108" class="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black text-center text-sm uppercase active:scale-95 transition-transform flex items-center justify-center gap-2">
-                                    <i data-lucide="phone" class="w-4 h-4"></i> Call 108
-                                </a>
-                                <button onclick="window.handleNavigation('${h.id}')" class="flex-[1.5] py-4 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase active:scale-95 transition-transform flex items-center justify-center gap-2">
-                                    <i data-lucide="navigation" class="w-4 h-4"></i> ${t().openMaps}
-                                </button>
+                                `).join('')}
                             </div>
                         </div>
+                    </div>
+                    <div class="flex gap-3 pt-4 pb-safe">
+                        <a href="tel:108" class="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black text-center text-sm uppercase active:scale-95 transition-transform flex items-center justify-center gap-2">
+                            <i data-lucide="phone" class="w-4 h-4"></i> Call 108
+                        </a>
+                        <button onclick="window.handleNavigation('${h.id}')" class="flex-[1.5] py-4 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase active:scale-95 transition-transform flex items-center justify-center gap-2">
+                            <i data-lucide="navigation" class="w-4 h-4"></i> ${t().openMaps}
+                        </button>
+                    </div>
+                </div>
+            `;
+        };
+
+        function HospitalDetailPopup() {
+            if (!state.viewingHospitalDetail) return '';
+            
+            return `
+                <div class="fixed inset-0 z-[1001] bg-slate-900/60 backdrop-blur-md flex items-end sm:items-center justify-center animate-in overflow-y-auto" onclick="window.setState({viewingHospitalDetail: null}, true)">
+                    <div id="popup-internal-content" class="bg-white w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl slide-up overflow-hidden" onclick="event.stopPropagation()">
+                        ${window.renderPopupInnerHtml()}
                     </div>
                 </div>
             `;
@@ -961,7 +1058,7 @@
             if(!container) return;
             
             container.innerHTML = `
-                <div class="fixed inset-0 z-[1000] flex items-end justify-center bg-slate-900/40 backdrop-blur-sm px-4 pb-10 animate-in" onclick="window.setState({isAiModal: false})">
+                <div class="fixed inset-0 z-[1000] flex items-end justify-center bg-slate-900/40 backdrop-blur-sm px-4 pb-10 animate-in" onclick="window.setState({isAiModal: false}, true)">
                     <div class="bg-white w-full max-w-md h-[85vh] rounded-[2.5rem] flex flex-col shadow-2xl overflow-hidden slide-up" onclick="event.stopPropagation()">
                         <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0">
                             <div class="flex items-center gap-3">
@@ -973,7 +1070,7 @@
                                     <p class="text-[10px] font-bold text-green-500 uppercase mt-1">${t().aiSub}</p>
                                 </div>
                             </div>
-                            <button onclick="window.setState({isAiModal: false})" class="p-2 bg-slate-50 rounded-xl text-slate-400">
+                            <button onclick="window.setState({isAiModal: false}, true)" class="p-2 bg-slate-50 rounded-xl text-slate-400">
                                 <i data-lucide="x" class="w-5 h-5"></i>
                             </button>
                         </div>
@@ -1027,12 +1124,25 @@
                             </span>
                             <h2 class="text-lg font-black truncate max-w-[200px] mt-1">${h.name}</h2>
                         </div>
-                        <button onclick="window.setState({view: 'user', adminHospitalId: null})" class="p-3 bg-white/10 rounded-xl hover:bg-white/20 transition-colors">
+                        <button onclick="window.handleLogout()" class="p-3 bg-white/10 rounded-xl hover:bg-white/20 transition-colors">
                             <i data-lucide="log-out" class="w-5 h-5"></i>
                         </button>
                     </div>
 
                     <div class="flex-1 overflow-y-auto p-4 space-y-4 hide-scrollbar pb-32">
+                        
+                        <!-- NEW: HIS Auto-Pilot Toggle -->
+                        <div class="bg-indigo-50 border border-indigo-100 p-5 rounded-[2rem] shadow-sm flex justify-between items-center mt-2">
+                            <div>
+                                <h3 class="font-black text-indigo-900 flex items-center gap-2">
+                                    <i data-lucide="cpu" class="w-5 h-5 text-indigo-600"></i> HIS Auto-Pilot
+                                </h3>
+                                <p class="text-[10px] font-bold text-indigo-500 uppercase mt-1 tracking-widest">Simulate Live Updates</p>
+                            </div>
+                            <button onclick="window.toggleAutoPilot('${h.id}')" class="w-14 h-8 rounded-full transition-colors relative shadow-inner ${h.isAutoPilot ? 'bg-indigo-600' : 'bg-slate-300'}">
+                                <div class="w-6 h-6 bg-white rounded-full absolute top-1 transition-transform shadow-md ${h.isAutoPilot ? 'left-7' : 'left-1'}"></div>
+                            </button>
+                        </div>
                         
                         <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
                             <h3 class="font-black text-slate-800 mb-4 flex items-center gap-2">
@@ -1041,11 +1151,11 @@
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="p-4 bg-blue-50 rounded-2xl border border-blue-100">
                                     <p class="text-[10px] font-black text-blue-500 uppercase mb-2">Available Beds</p>
-                                    <input type="number" value="${h.beds}" oninput="window.updateHospitalStat('${h.id}', 'beds', this.value)" class="text-3xl font-black text-blue-700 w-full bg-transparent outline-none">
+                                    <input id="admin-beds-${h.id}" type="number" value="${h.beds}" oninput="window.updateHospitalStat('${h.id}', 'beds', this.value)" class="text-3xl font-black text-blue-700 w-full bg-transparent outline-none">
                                 </div>
                                 <div class="p-4 bg-red-50 rounded-2xl border border-red-100">
                                     <p class="text-[10px] font-black text-red-500 uppercase mb-2">ICU Units</p>
-                                    <input type="number" value="${h.icuBeds}" oninput="window.updateHospitalStat('${h.id}', 'icuBeds', this.value)" class="text-3xl font-black text-red-600 w-full bg-transparent outline-none">
+                                    <input id="admin-icu-${h.id}" type="number" value="${h.icuBeds}" oninput="window.updateHospitalStat('${h.id}', 'icuBeds', this.value)" class="text-3xl font-black text-red-600 w-full bg-transparent outline-none">
                                 </div>
                             </div>
                         </div>
@@ -1103,7 +1213,7 @@
                     
                     <div class="absolute bottom-0 left-0 right-0 p-6 pb-safe bg-white border-t border-slate-100">
                         <button onclick="window.handleAdminPublish()" class="w-full py-5 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-transform flex justify-center items-center gap-2">
-                            <i data-lucide="cloud-upload" class="w-5 h-5"></i> Publish to Grid
+                            <i data-lucide="cloud-upload" class="w-5 h-5"></i> Force Manual Sync
                         </button>
                     </div>
                 </div>
@@ -1236,19 +1346,19 @@
                         ${tabs.map(tab => {
                             if (tab.central) {
                                 return `
-                                    <div onclick="window.setState({activeTab: 'home'})" class="w-16 h-16 -mt-12 bg-blue-600 rounded-[2rem] flex items-center justify-center text-white shadow-2xl ring-8 ring-[#f8fafc] cursor-pointer active:scale-90 transition-transform">
+                                    <div onclick="window.setState({activeTab: 'home'}, true)" class="w-16 h-16 -mt-12 bg-blue-600 rounded-[2rem] flex items-center justify-center text-white shadow-2xl ring-8 ring-[#f8fafc] cursor-pointer active:scale-90 transition-transform">
                                         <i data-lucide="zap" class="w-7 h-7 fill-white"></i>
                                     </div>
                                 `;
                             }
                             return `
-                                <button onclick="window.setState({activeTab: '${tab.id}'})" class="p-3 ${state.activeTab === tab.id ? 'text-blue-600 scale-110' : 'text-slate-300'} transition-all flex flex-col items-center gap-1 active:scale-90">
+                                <button onclick="window.setState({activeTab: '${tab.id}'}, true)" class="p-3 ${state.activeTab === tab.id ? 'text-blue-600 scale-110' : 'text-slate-300'} transition-all flex flex-col items-center gap-1 active:scale-90">
                                     <i data-lucide="${tab.icon}" class="w-6 h-6"></i>
                                 </button>
                             `;
                         }).join('')}
                     </nav>
-                    <button onclick="window.setState({isAiModal: true})" class="fab-btn w-16 h-16 bg-slate-900 text-white rounded-[2rem] flex items-center justify-center shadow-2xl active:scale-90 transition-transform ring-4 ring-white/5">
+                    <button onclick="window.setState({isAiModal: true}, false); window.renderAIModal();" class="fab-btn w-16 h-16 bg-slate-900 text-white rounded-[2rem] flex items-center justify-center shadow-2xl active:scale-90 transition-transform ring-4 ring-white/5">
                         <i data-lucide="bot" class="w-8 h-8"></i>
                     </button>
                     <div id="ai-modal-root"></div>
