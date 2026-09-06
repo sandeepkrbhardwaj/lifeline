@@ -18,6 +18,8 @@
         :root {
             --sat: env(safe-area-inset-top, 0px);
             --sab: env(safe-area-inset-bottom, 0px);
+            /* Clearance for host badges like Netlify / Vercel */
+            --host-badge-height: 3.4rem;
         }
 
         * {
@@ -49,12 +51,13 @@
             background-color: #f8fafc;
         }
 
+        /* Ample padding to ensure bottom cards scroll completely clear of the floating nav */
         .scroll-body {
             flex: 1 1 0%;
             overflow-y: auto;
             overflow-x: hidden;
             -webkit-overflow-scrolling: touch;
-            padding-bottom: calc(5.5rem + var(--sab));
+            padding-bottom: calc(9.5rem + var(--sab));
         }
 
         .hide-scrollbar::-webkit-scrollbar { display: none; }
@@ -67,10 +70,15 @@
             z-index: 40;
         }
 
-        .bottom-nav {
-            padding-bottom: max(0.5rem, var(--sab));
-            flex-shrink: 0;
-            z-index: 40;
+        /* Shifted upwards so the bottom bar floats cleanly above host badges */
+        .floating-bottom-nav {
+            position: absolute;
+            left: 0.75rem;
+            right: 0.75rem;
+            bottom: calc(var(--host-badge-height) + var(--sab) + 0.35rem);
+            border-radius: 1.5rem;
+            box-shadow: 0 12px 30px -6px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.08);
+            z-index: 50;
         }
 
         #leaflet-map {
@@ -132,7 +140,7 @@
 <body class="flex justify-center items-center">
 
     <div id="app-root" class="text-slate-900 border-x border-slate-200">
-        <!-- Injected via State Engine -->
+        <!-- Injected via JavaScript -->
     </div>
 
     <script>
@@ -151,7 +159,7 @@
                 beds: "Beds",
                 icu: "ICU",
                 wait: "Wait",
-                opdFee: "OPD Fee",
+                opdFee: "OPD FEE",
                 home: "Home",
                 map: "Map",
                 blood: "Blood",
@@ -177,7 +185,7 @@
                 beds: "बेड",
                 icu: "आईसीयू",
                 wait: "प्रतीक्षा",
-                opdFee: "परामर्श शुल्क",
+                opdFee: "ओपीडी शुल्क",
                 home: "होम",
                 map: "मैप",
                 blood: "ब्लड",
@@ -229,7 +237,7 @@
                 beds: "Beds",
                 icu: "ICU",
                 wait: "Wait",
-                opdFee: "OPD Fees",
+                opdFee: "OPD FEES",
                 home: "Home",
                 map: "Map",
                 blood: "Blood",
@@ -492,7 +500,7 @@
             window.setState({ lang: langCode, langDropdownOpen: false });
         };
 
-        // Transition Exit Handshake: ONLY dismisses splash when unlocked
+        // Transition Exit: Dismisses splash and unlocks console
         function dismissSplash() {
             if (splashDismissed) return;
             splashDismissed = true;
@@ -511,15 +519,15 @@
             }
         }
 
-        // Location Requester with STRICT 5-Second Timeout Watchdog
+        // Location Requester with 5-Second Watchdog
         window.requestGPSWithPermissionGate = () => {
             populateHospitals(state.location.lat, state.location.lng);
 
-            // Start 5-second watchdog timer
+            // 5-second timeout watchdog
             permissionTimer = setTimeout(() => {
                 if (state.loading) {
                     state.permissionTimedOut = true;
-                    render(); // Reveals the warning box on the splash screen
+                    render();
                 }
             }, 5000);
 
@@ -555,14 +563,12 @@
             }
         };
 
-        // Fallback continuation if user proceeds without granting
         window.proceedWithDefaultLocation = () => {
             state.location = { lat: 28.4744, lng: 77.4897, name: "Knowledge Park III, Greater Noida", granted: false };
             populateHospitals(28.4744, 77.4897);
             dismissSplash();
         };
 
-        // Header Locate Trigger
         window.triggerGPS = () => {
             const locLabel = document.getElementById('user-location-text');
             if (locLabel) locLabel.innerText = "Re-locking GPS...";
@@ -619,6 +625,7 @@
             });
         }
 
+        // --- DISMANTLE-PROOF HOSPITAL CARDS ---
         function renderHospitalCards() {
             const stack = document.getElementById('hospital-card-stack');
             if (!stack) return;
@@ -640,23 +647,25 @@
 
             stack.innerHTML = items.map(h => `
                 <div onclick="window.setState({viewingHospitalDetail: '${h.id}'})" class="bg-white border border-slate-200 hover:border-blue-400 shadow-sm p-4 rounded-2xl active:scale-[0.98] transition-all cursor-pointer space-y-3">
-                    <div class="flex justify-between items-start">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center shrink-0">
+                    <!-- Top Info Row: Rigid flex container with shrink-0 safeguards -->
+                    <div class="flex justify-between items-start gap-2.5">
+                        <div class="flex items-start gap-2.5 min-w-0 flex-1">
+                            <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center shrink-0 mt-0.5">
                                 <i data-lucide="cross" class="w-5 h-5"></i>
                             </div>
-                            <div>
-                                <h3 class="text-sm font-extrabold text-slate-900 leading-tight line-clamp-1">${h.name}</h3>
-                                <p class="text-[11px] font-semibold text-blue-600 mt-0.5 flex items-center gap-1.5">
-                                    <span class="bg-blue-50 text-blue-700 px-1.5 py-0.2 rounded font-bold">${h.distance < 1 ? (h.distance * 1000).toFixed(0) + ' m' : h.distance.toFixed(1) + ' km'}</span>
-                                    <span class="text-slate-300">•</span>
-                                    <span class="text-slate-500 truncate max-w-[140px]">${h.specialty}</span>
-                                </p>
+                            <div class="min-w-0 flex-1">
+                                <h3 class="text-sm font-extrabold text-slate-900 leading-snug line-clamp-1 truncate">${h.name}</h3>
+                                <div class="flex items-center gap-1.5 mt-1 overflow-hidden">
+                                    <span class="bg-blue-50 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0">${h.distance < 1 ? (h.distance * 1000).toFixed(0) + ' m' : h.distance.toFixed(1) + ' km'}</span>
+                                    <span class="text-slate-300 shrink-0">•</span>
+                                    <span class="text-[11px] font-medium text-slate-500 truncate block">${h.specialty}</span>
+                                </div>
                             </div>
                         </div>
-                        <div class="text-right shrink-0">
-                            <span class="text-xs font-black text-emerald-600">₹${h.cost}</span>
-                            <span class="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">${t().opdFee}</span>
+
+                        <div class="text-right shrink-0 min-w-[4.2rem]">
+                            <span class="text-sm font-black text-emerald-600 leading-none block">₹${h.cost}</span>
+                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-1 block whitespace-nowrap">${t().opdFee}</span>
                         </div>
                     </div>
 
@@ -664,12 +673,12 @@
                     <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 space-y-1.5">
                         ${queryActive ? `<span class="text-[9px] font-extrabold uppercase text-blue-600 tracking-wider block mb-1">${t().matchingDept}</span>` : ''}
                         ${h.doctors.map(doc => `
-                            <div class="flex justify-between items-center text-[11px]">
-                                <div>
-                                    <span class="font-extrabold text-slate-800">${doc.name}</span>
-                                    <span class="text-[10px] text-slate-500 block">${doc.role}</span>
+                            <div class="flex justify-between items-center text-[11px] gap-2">
+                                <div class="min-w-0 flex-1">
+                                    <span class="font-extrabold text-slate-800 block truncate">${doc.name}</span>
+                                    <span class="text-[10px] text-slate-500 block truncate">${doc.role}</span>
                                 </div>
-                                <span class="font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">₹${doc.fee}</span>
+                                <span class="font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md shrink-0">₹${doc.fee}</span>
                             </div>
                         `).join('')}
                     </div>
@@ -739,19 +748,19 @@
 
             return `
                 <header class="header-bar px-4 border-b bg-white border-slate-200 flex items-center justify-between shadow-xs">
-                    <div class="flex items-center gap-2.5">
-                        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center shadow-md shadow-blue-500/20">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
                             <i data-lucide="zap" class="w-5 h-5 fill-white text-white"></i>
                         </div>
-                        <div>
-                            <span class="text-[9px] font-black tracking-widest text-blue-600 uppercase leading-none block">${t().liveGrid}</span>
-                            <p id="user-location-text" class="text-xs font-extrabold text-slate-900 tracking-tight truncate max-w-[140px] mt-0.5">
+                        <div class="min-w-0">
+                            <span class="text-[9px] font-black tracking-widest text-blue-600 uppercase leading-none block truncate">${t().liveGrid}</span>
+                            <p id="user-location-text" class="text-xs font-extrabold text-slate-900 tracking-tight truncate max-w-[135px] mt-0.5">
                                 ${state.location.name}
                             </p>
                         </div>
                     </div>
                     
-                    <div class="flex items-center gap-1.5 relative">
+                    <div class="flex items-center gap-1.5 relative shrink-0">
                         <!-- Language Dropdown Button -->
                         <div class="relative">
                             <button onclick="window.toggleLangDropdown()" class="px-2.5 h-8 rounded-lg bg-slate-50 text-slate-800 border border-slate-300 flex items-center gap-1 text-[11px] font-black shadow-xs active:scale-95 transition-all">
@@ -785,7 +794,7 @@
         function renderUserHome() {
             return `
                 <div class="scroll-body hide-scrollbar p-4 space-y-4 fade-in">
-                    <!-- Search Input -->
+                    <!-- Clean Search Input -->
                     <div class="relative">
                         <i data-lucide="search" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
                         <input 
@@ -817,7 +826,7 @@
                             <span id="center-count-label" class="text-xs font-bold text-blue-600">${state.hospitals.length} ${t().centersFound}</span>
                         </div>
                         <div id="hospital-card-stack" class="space-y-3">
-                            <!-- Injected -->
+                            <!-- Injected Cards -->
                         </div>
                     </div>
                 </div>
@@ -828,7 +837,7 @@
             return `
                 <div class="flex-1 w-full h-full relative overflow-hidden fade-in">
                     <div id="leaflet-map"></div>
-                    <div class="absolute bottom-20 left-3 right-3 z-[999] bg-white/95 border border-slate-200 text-slate-900 p-3 rounded-xl shadow-xl flex items-center justify-between">
+                    <div class="absolute bottom-28 left-3 right-3 z-[45] bg-white/95 border border-slate-200 text-slate-900 p-3 rounded-xl shadow-xl flex items-center justify-between">
                         <div class="flex items-center gap-2">
                             <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
                             <p class="text-xs font-extrabold">Real Medical Map (${state.hospitals.length})</p>
@@ -911,33 +920,33 @@
             `;
         }
 
-        // --- 4-OPTION BOTTOM NAVIGATION (Home, Map, Diseases, Blood) ---
+        // --- SHIFTED UPWARDS FLOATING NAV (Escapes Host Website Badges) ---
         function renderNavbar() {
             return `
-                <nav class="bottom-nav border-t bg-white border-slate-200 flex justify-around items-center pt-2.5 shadow-lg">
-                    <button onclick="window.setState({activeTab: 'home'})" class="p-1.5 flex flex-col items-center gap-1 ${state.activeTab === 'home' ? 'text-blue-600' : 'text-slate-400'}">
+                <nav class="floating-bottom-nav bg-white/95 backdrop-blur-2xl border border-slate-200/90 flex justify-around items-center py-2 px-2">
+                    <button onclick="window.setState({activeTab: 'home'})" class="p-1 flex flex-col items-center gap-0.5 ${state.activeTab === 'home' ? 'text-blue-600' : 'text-slate-400'}">
                         <i data-lucide="home" class="w-5 h-5"></i>
-                        <span class="text-[9px] font-extrabold">${t().home}</span>
+                        <span class="text-[9px] font-bold">${t().home}</span>
                     </button>
 
-                    <button onclick="window.setState({activeTab: 'map'})" class="p-1.5 flex flex-col items-center gap-1 ${state.activeTab === 'map' ? 'text-blue-600' : 'text-slate-400'}">
+                    <button onclick="window.setState({activeTab: 'map'})" class="p-1 flex flex-col items-center gap-0.5 ${state.activeTab === 'map' ? 'text-blue-600' : 'text-slate-400'}">
                         <i data-lucide="map" class="w-5 h-5"></i>
-                        <span class="text-[9px] font-extrabold">${t().map}</span>
+                        <span class="text-[9px] font-bold">${t().map}</span>
                     </button>
 
                     <!-- Central SOS Action -->
-                    <div onclick="window.setState({activeTab: 'home'})" class="w-12 h-12 -mt-6 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-600/30 ring-4 ring-white active:scale-90 transition-transform cursor-pointer">
-                        <i data-lucide="zap" class="w-5 h-5 fill-white"></i>
+                    <div onclick="window.setState({activeTab: 'home'})" class="w-12 h-12 -mt-7 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-600/35 ring-4 ring-white active:scale-90 transition-transform cursor-pointer">
+                        <i data-lucide="zap" class="w-6 h-6 fill-white"></i>
                     </div>
 
-                    <button onclick="window.setState({activeTab: 'diseases'})" class="p-1.5 flex flex-col items-center gap-1 ${state.activeTab === 'diseases' ? 'text-blue-600' : 'text-slate-400'}">
+                    <button onclick="window.setState({activeTab: 'diseases'})" class="p-1 flex flex-col items-center gap-0.5 ${state.activeTab === 'diseases' ? 'text-blue-600' : 'text-slate-400'}">
                         <i data-lucide="activity" class="w-5 h-5"></i>
-                        <span class="text-[9px] font-extrabold">${t().diseases}</span>
+                        <span class="text-[9px] font-bold">${t().diseases}</span>
                     </button>
 
-                    <button onclick="window.setState({activeTab: 'blood'})" class="p-1.5 flex flex-col items-center gap-1 ${state.activeTab === 'blood' ? 'text-blue-600' : 'text-slate-400'}">
+                    <button onclick="window.setState({activeTab: 'blood'})" class="p-1 flex flex-col items-center gap-0.5 ${state.activeTab === 'blood' ? 'text-blue-600' : 'text-slate-400'}">
                         <i data-lucide="droplet" class="w-5 h-5"></i>
-                        <span class="text-[9px] font-extrabold">${t().blood}</span>
+                        <span class="text-[9px] font-bold">${t().blood}</span>
                     </button>
                 </nav>
             `;
@@ -1038,17 +1047,15 @@
             `;
         }
 
-        // --- RENDER ENGINE WITH PERMISSION GATE TRANSITION ---
+        // --- RENDER ENGINE ---
         function render() {
             const root = document.getElementById('app-root');
             if (!root) return;
 
-            // Splash Screen: Stays active until GPS permission given or 5-second timeout dialog answered
             if (state.loading) {
                 root.innerHTML = `
                     <div id="splash-screen" class="h-full flex flex-col items-center justify-center bg-gradient-to-b from-white via-slate-50 to-blue-50/40 p-6 text-center">
                         <div class="relative mb-6">
-                            <!-- Emergency Beacon Ring -->
                             <div class="w-20 h-20 rounded-3xl bg-blue-600 flex items-center justify-center text-white shadow-2xl shadow-blue-500/40 pulse-heart">
                                 <i data-lucide="heart-pulse" class="w-10 h-10 stroke-[2.2]"></i>
                             </div>
@@ -1057,7 +1064,6 @@
                             </span>
                         </div>
                         
-                        <!-- Brand Banner -->
                         <h1 class="text-3xl font-black text-slate-900 tracking-tight leading-none mb-1">
                             LIFELINE
                         </h1>
@@ -1070,9 +1076,8 @@
                                 <i data-lucide="map-pin" class="w-3.5 h-3.5 text-blue-600"></i>
                                 <span class="text-xs font-bold text-slate-700">Waiting for location permission...</span>
                             </div>
-                            <p class="text-[10px] text-slate-400 mt-2 font-medium">Please click "Allow" on your browser/phone prompt</p>
+                            <p class="text-[10px] text-slate-400 mt-2 font-medium">Please click "Allow" on your browser prompt</p>
                         ` : `
-                            <!-- 5-Second Timeout / Error Alert Card -->
                             <div class="w-full max-w-xs bg-rose-50 border border-rose-200 p-4 rounded-2xl shadow-md text-left mt-2 animate-in space-y-3">
                                 <div class="flex items-center gap-2 text-rose-700">
                                     <i data-lucide="alert-triangle" class="w-5 h-5 shrink-0"></i>
@@ -1119,7 +1124,6 @@
             lucide.createIcons();
         }
 
-        // Initialize and trigger permission request immediately during splash
         render();
         window.requestGPSWithPermissionGate();
     </script>
