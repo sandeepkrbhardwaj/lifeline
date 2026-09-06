@@ -3,33 +3,952 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Lifeline India | Medical Command</title>
-    
+    <title>Lifeline India | Emergency Command</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Leaflet Engine -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <link rel="stylesheet" href="styles.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+        
+        :root {
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #060911;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .pt-safe { padding-top: max(1rem, var(--safe-top)); }
+        .pb-safe { padding-bottom: max(1.2rem, var(--safe-bottom)); }
+
+        #leaflet-map {
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+        }
+
+        .user-gps-pulse {
+            width: 20px;
+            height: 20px;
+            background: #00d2ff;
+            border-radius: 50%;
+            border: 3px solid #ffffff;
+            box-shadow: 0 0 16px #00d2ff;
+            position: relative;
+        }
+        .user-gps-pulse::after {
+            content: '';
+            position: absolute;
+            top: -6px;
+            left: -6px;
+            right: -6px;
+            bottom: -6px;
+            border-radius: 50%;
+            border: 2px solid #00d2ff;
+            animation: ring-pulse 1.8s infinite;
+        }
+        @keyframes ring-pulse {
+            0% { transform: scale(0.6); opacity: 1; }
+            100% { transform: scale(2.8); opacity: 0; }
+        }
+    </style>
 </head>
-<body class="flex justify-center items-start min-h-screen relative">
-    
-    <div id="app-container" class="relative overflow-hidden flex flex-col"></div>
+<body class="flex justify-center items-center min-h-screen">
 
-    <datalist id="specialties-list">
-        <option value="General Physician"></option>
-        <option value="Cardiologist"></option>
-        <option value="Neurologist"></option>
-        <option value="Orthopedic Surgeon"></option>
-        <option value="Pediatrician"></option>
-        <option value="Gynecologist"></option>
-        <option value="Dermatologist"></option>
-        <option value="Emergency Specialist"></option>
-        <option value="Pulmonologist"></option>
-        <option value="Gastroenterologist"></option>
-    </datalist>
+    <div id="app-container" class="relative w-full h-[100dvh] sm:max-w-md bg-slate-900 overflow-hidden flex flex-col sm:shadow-2xl sm:border sm:border-slate-800">
+        <!-- Injected via JavaScript -->
+    </div>
 
-    <script type="module" src="app.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA2FIugwti0ri5lA-XRoBuFMkDhq9LQYvE",
+            authDomain: "hospital-a9b43.firebaseapp.com",
+            projectId: "hospital-a9b43",
+            storageBucket: "hospital-a9b43.firebasestorage.app",
+            messagingSenderId: "124364489495",
+            appId: "1:124364489495:web:59b44243d005c556da2d52"
+        };
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // --- 4-LANGUAGE TRANSLATIONS (EN, HI, HING, BN) ---
+        const I18N = {
+            en: {
+                liveGrid: "EMERGENCY GRID",
+                searchPlaceholder: "Search disease, doctor, bone, heart...",
+                helplineTitle: "NATIONAL HELPLINE",
+                call108: "Emergency 108",
+                helplineSub: "Paramedic & Dispatch Command",
+                nearestUnits: "Nearest Units",
+                ascendingOrder: "Ascending Order",
+                centersFound: "Centers Found",
+                beds: "Beds",
+                icu: "ICU",
+                wait: "Wait",
+                opdFee: "OPD Fee",
+                home: "Home",
+                map: "Map",
+                blood: "Blood",
+                diseases: "Diseases",
+                firstAid: "First Aid",
+                bloodBankTitle: "Live Regional Blood Grid",
+                bloodBankSub: "Verified units across all 8 blood groups (0–30 km)",
+                directions: "Directions",
+                callBtn: "Call 108",
+                routeBtn: "Start Turn-By-Turn Route",
+                noResults: "No matching hospital found in 0–30 km perimeter."
+            },
+            hi: {
+                liveGrid: "आपातकालीन ग्रिड",
+                searchPlaceholder: "बीमारी, डॉक्टर, हड्डी, दिल खोजें...",
+                helplineTitle: "राष्ट्रीय हेल्पलाइन",
+                call108: "इमरजेंसी 108",
+                helplineSub: "पैरामेडिक एवं एम्बुलेंस डिस्पैच",
+                nearestUnits: "निकटतम अस्पताल",
+                ascendingOrder: "न्यूनतम दूरी",
+                centersFound: "अस्पताल मिले",
+                beds: "बेड",
+                icu: "आईसीयू",
+                wait: "प्रतीक्षा",
+                opdFee: "परामर्श शुल्क",
+                home: "होम",
+                map: "मैप",
+                blood: "ब्लड",
+                diseases: "बीमारियां",
+                firstAid: "उपचार",
+                bloodBankTitle: "लाइव ब्लड बैंक ग्रिड",
+                bloodBankSub: "सभी 8 ब्लड ग्रुप की उपलब्ध यूनिट्स (0–30 किमी)",
+                directions: "रास्ता देखें",
+                callBtn: "108 कॉल करें",
+                routeBtn: "नेविगेशन शुरू करें",
+                noResults: "इस सर्च के अनुसार 30 किमी के भीतर कोई अस्पताल नहीं मिला।"
+            },
+            hien: {
+                liveGrid: "EMERGENCY GRID",
+                searchPlaceholder: "Bimari, doctor, haddi, dil search karein...",
+                helplineTitle: "NATIONAL HELPLINE",
+                call108: "Emergency 108",
+                helplineSub: "Paramedic & Ambulance Dispatch",
+                nearestUnits: "Paas ke Hospitals",
+                ascendingOrder: "Distance Wise",
+                centersFound: "Centers Found",
+                beds: "Beds",
+                icu: "ICU",
+                wait: "Wait",
+                opdFee: "OPD Fees",
+                home: "Home",
+                map: "Map",
+                blood: "Blood",
+                diseases: "Bimariyan",
+                firstAid: "First Aid",
+                bloodBankTitle: "Live Regional Blood Grid",
+                bloodBankSub: "Sabhi 8 blood groups ke available units (0–30 km)",
+                directions: "Directions",
+                callBtn: "108 Call Karein",
+                routeBtn: "Turn-By-Turn Route",
+                noResults: "30 km radius me koi hospital nahi mila."
+            },
+            bn: {
+                liveGrid: "জরুরি গ্রিড",
+                searchPlaceholder: "রোগ, ডাক্তার, হাড়, হার্ট খুঁজুন...",
+                helplineTitle: "জাতীয় হেল্পলাইন",
+                call108: "জরুরি ১০৮",
+                helplineSub: "প্যারামেডিক ও অ্যাম্বুলেন্স প্রেরণ",
+                nearestUnits: "নিকটতম হাসপাতাল",
+                ascendingOrder: "দূরত্ব অনুসারে",
+                centersFound: "হাসপাতাল পাওয়া গেছে",
+                beds: "বেড",
+                icu: "আইসিইউ",
+                wait: "অপেক্ষা",
+                opdFee: "পরামর্শ ফি",
+                home: "হোম",
+                map: "ম্যাপ",
+                blood: "রক্ত",
+                diseases: "রোগসমূহ",
+                firstAid: "প্রাথমিক চিকিৎসা",
+                bloodBankTitle: "লাইভ ব্লাড ব্যাংক গ্রিড",
+                bloodBankSub: "৮টি রক্তের গ্রুপের মজুত (০–৩০ কিমি)",
+                directions: "দিকনির্দেশ",
+                callBtn: "১০৮ কল করুন",
+                routeBtn: "রুট শুরু করুন",
+                noResults: "৩০ কিমির মধ্যে কোনো হাসপাতাল পাওয়া যায়নি।"
+            }
+        };
+
+        // --- 12 COMMON CRITICAL DISEASES IN 4 LANGUAGES ---
+        const COMMON_12_DISEASES = {
+            en: [
+                { id: 1, title: 'Heart Attack (Chest Angina)', category: 'Cardiology (Heart)', docType: 'Cardiologist', steps: ['Keep patient calm & seated upright', 'Loosen neck, chest & waist clothing', 'Give 300mg chewable Aspirin if not allergic', 'Do not let patient exert or walk; call 108'] },
+                { id: 2, title: 'Cardiac Arrest (No Pulse)', category: 'Cardiology (CPR)', docType: 'Emergency Physician', steps: ['Confirm responsiveness & dial 108', 'Push hard & fast on center of chest (100-120 bpm)', 'Compress at least 2 inches deep', 'Allow full chest recoil between compressions'] },
+                { id: 3, title: 'Acute Asthma & Respiratory Distress', category: 'Pulmonology (Lungs)', docType: 'Pulmonologist', steps: ['Sit upright, do not lie down flat', 'Take 2-4 puffs of blue rescue inhaler', 'Take slow deep breaths through pursed lips', 'If symptoms persist after 5 mins, call 108'] },
+                { id: 4, title: 'Brain Stroke (Paralysis)', category: 'Neurology (Brain)', docType: 'Neurologist', steps: ['B: Balance loss or dizziness', 'E: Eyesight blurriness in one or both eyes', 'F: Face drooping on one side', 'A: Arm weakness or numbness', 'T: Time to rush to acute stroke/CT center'] },
+                { id: 5, title: 'Bone Fracture & Trauma', category: 'Orthopedics (Bone)', docType: 'Orthopedic Surgeon', steps: ['Immobilize limb using a rigid splint/cardboard', 'Do not attempt to push protruding bone inside', 'Apply wrapped ice pack to reduce swelling', 'Transport patient without bending joint'] },
+                { id: 6, title: 'Choking (Airway Obstruction)', category: 'Emergency Airway', docType: 'Trauma Specialist', steps: ['Lean person slightly forward', 'Deliver 5 sharp back blows between shoulder blades', 'Give 5 rapid upward abdominal thrusts (Heimlich)', 'Repeat until airway clears'] },
+                { id: 7, title: 'Epileptic Seizure / Fits', category: 'Neurology (Brain)', docType: 'Neurologist', steps: ['Clear sharp objects from surroundings', 'Cushion head with soft cloth/pillow', 'Do NOT insert spoon, key, or cloth into mouth', 'Turn to recovery side once convulsions stop'] },
+                { id: 8, title: 'Severe Burn Injuries', category: 'Trauma & Burns', docType: 'Burn Surgeon', steps: ['Cool burn with clean running water for 15-20 mins', 'Do NOT apply toothpaste, ghee, or ice', 'Cover loosely with clean non-stick sterile sheet', 'Seek emergency care for facial or large burns'] },
+                { id: 9, title: 'Severe Bleeding & Hemorrhage', category: 'Trauma & Wound', docType: 'General Surgeon', steps: ['Apply firm, direct pressure with clean cloth', 'Do not lift soaked cloth; add more clean cloth on top', 'Maintain pressure continuously for 10-15 mins', 'Elevate wounded area above heart level'] },
+                { id: 10, title: 'Diabetic Hypoglycemia (Low Sugar)', category: 'Endocrinology', docType: 'General Physician', steps: ['Recognize sweating, trembling, dizziness', 'Give 15-20g fast-acting sugar (fruit juice/glucose)', 'Recheck blood glucose after 15 mins', 'If unconscious, do NOT pour liquid in mouth; call 108'] },
+                { id: 11, title: 'Venomous Snake Bite', category: 'Toxicology', docType: 'Critical Care Physician', steps: ['Keep patient calm & completely still to slow venom flow', 'Remove tight rings, watches, and shoes from limb', 'Do NOT cut wound, suck venom, or tie tourniquets', 'Rush straight to hospital equipped with Antivenom (ASV)'] },
+                { id: 12, title: 'Severe Allergic Anaphylaxis', category: 'Immunology', docType: 'Emergency Physician', steps: ['Identify swelling of lips/throat and wheezing breath', 'Administer Epinephrine auto-injector (EpiPen) into thigh', 'Lay patient flat with legs elevated', 'Transport via 108 ambulance immediately'] }
+            ],
+            hi: [
+                { id: 1, title: 'हार्ट अटैक (सीने में तेज दर्द)', category: 'कार्डियोलॉजी (दिल)', docType: 'कार्डियोलॉजिस्ट', steps: ['मरीज को शांति से पीठ के सहारे सीधा बिठाएं', 'गले और कमर के तंग कपड़े ढीले करें', 'यदि एलर्जी न हो तो 300mg एस्पिरिन चबाने को दें', 'मरीज को चलने न दें; तुरंत 108 एम्बुलेंस बुलाएं'] },
+                { id: 2, title: 'कार्डियक अरेस्ट (नाड़ी बंद होना - CPR)', category: 'इमरजेंसी सीपीआर', docType: 'इमरजेंसी फिजिशियन', steps: ['मरीज का होश चेक करें और तुरंत 108 पर कॉल करें', 'छाती के बीचों-बीच दोनों हाथों से 100-120 की गति से दबाएं', 'छाती को कम से कम 2 इंच गहरा दबाएं', 'हर दबाव के बाद छाती को वापस ऊपर आने दें'] },
+                { id: 3, title: 'अस्थमा का तेज दौरा (सांस फूलना)', category: 'पल्मोनोलॉजी (फेफड़े)', docType: 'पल्मोनोलॉजिस्ट', steps: ['मरीज को सीधा बिठाएं, बिल्कुल लेटने न दें', 'रेस्क्यू इनहेलर के 2 से 4 पफ दें', 'होंठ सिकोड़कर धीमी और गहरी सांस लेने को कहें', 'यदि 5 मिनट में आराम न मिले तो 108 कॉल करें'] },
+                { id: 4, title: 'ब्रेन स्ट्रोक / लकवा (Brain Stroke)', category: 'न्यूरोलॉजी (दिमाग)', docType: 'न्यूरोलॉजिस्ट', steps: ['B: अचानक शरीर का संतुलन खोना', 'E: आंखों से धुंधला या दोहरा दिखना', 'F: चेहरे का एक तरफ टेढ़ा होना', 'A: एक हाथ का कमजोर या सुन्न पड़ना', 'T: तुरंत CT स्कैन सुविधा वाले अस्पताल पहुंचें'] },
+                { id: 5, title: 'हड्डी टूटना व फ्रैक्चर (Bone Fracture)', category: 'ऑर्थोपेडिक (हड्डी)', docType: 'हड्डी रोग विशेषज्ञ', steps: ['टूटे अंग को लकड़ी या गत्ते के सहारे स्थिर करें', 'बाहर निकली हड्डी को अंदर दबाने की कोशिश न करें', 'सूजन कम करने के लिए कपड़े में लपेटकर बर्फ लगाएं', 'बिना अंग मोड़े मरीज को सीधे अस्पताल ले जाएं'] },
+                { id: 6, title: 'गले में कुछ अटकना (दम घुटना - Heimlich)', category: 'सांस नली इमरजेंसी', docType: 'ट्रॉमा विशेषज्ञ', steps: ['व्यक्ति को हल्का आगे की ओर झुकाएं', 'पीठ पर कंधों के बीच 5 बार जोर से थपथपाएं', 'नाभि के ठीक ऊपर पेट को अंदर और ऊपर की तरफ 5 बार दबाएं', 'जब तक फंसी वस्तु बाहर न निकले दोहराएं'] },
+                { id: 7, title: 'मिर्गी के दौरे / झटके (Fits / Seizure)', category: 'न्यूरोलॉजी (दिमाग)', docType: 'न्यूरोलॉजिस्ट', steps: ['आसपास की नुकीली व खतरनाक चीजें दूर हटाएं', 'सिर के नीचे मुलायम कपड़ा या तकिया लगाएं', 'मुंह में चम्मच, चाबी या कपड़ा जबरदस्ती न डालें', 'दौरा रुकने के बाद करवट दिलाकर लिटाएं'] },
+                { id: 8, title: 'आग से गंभीर जलना (Severe Burn)', category: 'ट्रॉमा एवं बर्न', docType: 'बर्न सर्जन', steps: ['जले हुए हिस्से पर 15-20 मिनट तक नल का सादा पानी बहाएं', 'टूथपेस्ट, घी, मक्खन या बर्फ बिल्कुल न लगाएं', 'साफ और सूखे कपड़े से ढीला ढकें', 'चेहरे या छाले वाले हिस्से के लिए तुरंत अस्पताल जाएं'] },
+                { id: 9, title: 'खून का तेज बहाव (Severe Bleeding)', category: 'ट्रॉमा एवं सर्जरी', docType: 'जनरल सर्जन', steps: ['साफ कपड़े से घाव पर लगातार सीधा दबाव बनाएं', 'खून से भीगे कपड़े को हटाएं नहीं, उसके ऊपर और कपड़ा लगाएं', 'दबाव को बिना हटाए 10-15 मिनट तक बनाए रखें', 'घायल हिस्से को दिल के स्तर से ऊपर उठाएं'] },
+                { id: 10, title: 'शुगर लो होना (हाइपोग्लाइसीमिया)', category: 'एंडोक्राइनोलॉजी (शुगर)', docType: 'जनरल फिजिशियन', steps: ['पसीना आना, कंपकंपी और घबराहट के लक्षण पहचानें', 'तुरंत 15-20 ग्राम चीनी, ग्लूकोज या मीठा जूस पिलाएं', '15 मिनट बाद दोबारा शुगर चेक करें', 'यदि मरीज बेहोश हो तो मुंह में कुछ न डालें; 108 कॉल करें'] },
+                { id: 11, title: 'सांप का काटना (Snake Bite)', category: 'टॉक्सिकोलॉजी (जहर)', docType: 'क्रिटिकल केयर विशेषज्ञ', steps: ['मरीज को शांत और स्थिर रखें ताकि जहर न फैले', 'काटे गए अंग से अंगूठी, घड़ी या जूते तुरंत उतारें', 'घाव पर चीरा न लगाएं और न ही मुंह से जहर चूसें', 'सीधे एंटी-वेनम (ASV) उपलब्ध वाले बड़े अस्पताल ले जाएं'] },
+                { id: 12, title: 'गंभीर एलर्जी अटैक (Anaphylaxis)', category: 'इम्यूनोलॉजी (एलर्जी)', docType: 'इमरजेंसी फिजिशियन', steps: ['होंठ, जीभ की सूजन और सांस में सीटी की आवाज पहचानें', 'यदि उपलब्ध हो तो जांघ में एपिनेफ्रीन (EpiPen) लगाएं', 'मरीज को लिटाएं और पैरों को थोड़ा ऊपर उठाएं', 'बिना देर किए 108 एम्बुलेंस से अस्पताल रवाना करें'] }
+            ],
+            hien: [
+                { id: 1, title: 'Heart Attack (Seene me tez dard)', category: 'Cardiology (Heart)', docType: 'Cardiologist', steps: ['Patient ko shanti se seedha baithayein, letne na dein', 'Gale aur kamar ke tight kapde loose karein', 'Allergy na ho toh 300mg Aspirin chew karne ko dein', 'Patient ko bilkul chalne na dein; 108 ambulance bulayein'] },
+                { id: 2, title: 'Cardiac Arrest (Pulse band hona - CPR)', category: 'Emergency CPR', docType: 'Emergency Physician', steps: ['Hosh check karein aur turant 108 call karein', 'Chest ke center me 100-120 bpm speed se press karein', 'Kam se kam 2 inch deep compress karein', 'Har push ke baad chest ko wapas upar aane dein'] },
+                { id: 3, title: 'Asthma Attack (Saans ki takleef)', category: 'Pulmonology (Lungs)', docType: 'Pulmonologist', steps: ['Seedhe baithein, flat bilkul na letein', 'Rescue inhaler ke 2-4 puffs dein', 'Dheere-dheere gehri saans lein', 'Agar 5 min me araam na mile toh 108 call karein'] },
+                { id: 4, title: 'Brain Stroke / Lakwa', category: 'Neurology (Brain)', docType: 'Neurologist', steps: ['Balance: Achanak body balance khona', 'Eyes: Dhundhla dikhna', 'Face: Chehra ek taraf tedha hona', 'Arms: Haath me kamzori aana', 'Time: Turant CT Scan wale hospital pahuchein'] },
+                { id: 5, title: 'Haddi Tootna / Fracture', category: 'Orthopedics (Bone)', docType: 'Orthopedic Surgeon', steps: ['Tooti haddi wale hisse ko support dekar still karein', 'Haddi ko zabardasti seedha karne ki koshish na karein', 'Kapde me lapet kar barf lagayein', 'Bina ang mode hospital le jayein'] },
+                { id: 6, title: 'Gale me kuch atakna (Choking)', category: 'Emergency Airway', docType: 'Trauma Specialist', steps: ['Person ko thoda aage bend karein', 'Peeth par 5 baar zor se thapthapayein', 'Naabhi ke upar pet ko 5 baar upar squeeze karein (Heimlich)', 'Jab tak fasa object bahar na aaye repeat karein'] },
+                { id: 7, title: 'Mirgi ke daure / Fits / Seizures', category: 'Neurology (Brain)', docType: 'Neurologist', steps: ['Aas-paas se sharp cheezein hata dein', 'Sir ke neeche soft kapda lagayein', 'Munh me chammach ya chaabi na daalein', 'Daura khatam hone ke baad karwat dila kar litayein'] },
+                { id: 8, title: 'Aag se jalna (Severe Burn)', category: 'Trauma & Burns', docType: 'Burn Surgeon', steps: ['Jali jagah par 15-20 min normal tap water daalein', 'Toothpaste, ghee ya barf na lagayein', 'Saaf sukhe kapde se loose cover karein', 'Bade jale hisse ke liye turant hospital jayein'] },
+                { id: 9, title: 'Heavy Bleeding Rokna', category: 'Trauma & Surgery', docType: 'General Surgeon', steps: ['Saaf kapde se ghaav par direct tight pressure lagayein', 'Bheega kapda hatayein nahi, upar aur kapda rakhein', '10-15 minute tak continuous daba kar rakhein', 'Ghaayal hisse ko dil se upar uthayein'] },
+                { id: 10, title: 'Sugar Low Hona (Hypoglycemia)', category: 'Sugar / Diabetes', docType: 'General Physician', steps: ['Paseena aur ghabrahat pehchanein', 'Turant 15-20g meetha juice ya glucose dein', '15 minute baad dobara sugar check karein', 'Agar behosh ho toh munh me kuch na daalein; 108 bulayein'] },
+                { id: 11, title: 'Saanp ka Katna (Snake Bite)', category: 'Toxicology', docType: 'Critical Care Specialist', steps: ['Patient ko shant aur still rakhein taaki venom na faile', 'Tightly bandhi ring, watch aur shoes nikaalein', 'Cut lagana ya munh se choosna bilkul na karein', 'Seedhe ASV (Anti-Snake Venom) wale hospital pahuchein'] },
+                { id: 12, title: 'Severe Allergy (Anaphylaxis)', category: 'Immunology', docType: 'Emergency Physician', steps: ['Lips, throat me swelling aur saans me wheezing dekhein', 'EpiPen available ho toh outer thigh me inject karein', 'Patient ko letayein aur pair thode upar rakhein', '108 ambulance se transport karein'] }
+            ],
+            bn: [
+                { id: 1, title: 'হার্ট অ্যাটাক (বুকে তীব্র ব্যথা)', category: 'কার্ডিওলজি (হার্ট)', docType: 'কার্ডিওলজিস্ট', steps: ['রোগীকে সোজা ও শান্তভাবে বসিয়ে রাখুন', 'গলা ও কোমরের টাইট পোশাক আলগা করুন', 'অ্যালার্জি না থাকলে ৩০০ মিলিগ্রাম অ্যাসপিরিন চিবিয়ে খেতে দিন', 'রোগীকে হাঁটতে দেবেন না; অবিলম্বে ১০৮ এম্বুলেন্স ডাকুন'] },
+                { id: 2, title: 'কার্ডিয়াক অ্যারেস্ট (সিপিআর - CPR)', category: 'জরুরি সিপিআর', docType: 'জরুরি চিকিৎসক', steps: ['রোগীর চেতনা পরীক্ষা করুন ও ১০৮ ডায়াল করুন', 'বুকের মাঝখানে প্রতি মিনিটে ১০০-১২০ গতিতে চাপ দিন', 'কমপক্ষে ২ ইঞ্চি গভীরে চাপ দিন', 'প্রতিটি চাপের পর বুক সম্পূর্ণ ফিরে আসতে দিন'] },
+                { id: 3, title: 'তীব্র হাঁপানি ও শ্বাসকষ্ট (Asthma)', category: 'পালমোনোলজি (ফুসফুস)', docType: 'পালমোনোলজিস্ট', steps: ['সোজা হয়ে বসুন, ভুলেও শোবেন না', 'ইনহেলারের ২-৪টি পাফ নিন', 'ধীরে ধীরে গভীর শ্বাস নিন', '৫ মিনিটে উপশম না হলে ১০৮ নম্বরে কল করুন'] },
+                { id: 4, title: 'ব্রেন স্ট্রোক / পক্ষাঘাত (Stroke)', category: 'নিউরোলজি (মস্তিষ্ক)', docType: 'নিউরোলজিস্ট', steps: ['B: শরীরের ভারসাম্য হারানো', 'E: চোখে ঝাপসা বা দ্বিগুণ দেখা', 'F: মুখের একপাশ বেঁকে যাওয়া', 'A: হাত দুর্বল বা অসাড় হয়ে যাওয়া', 'T: কালক্ষেপণ না করে দ্রুত সিটি স্ক্যান হাসপাতালে যান'] },
+                { id: 5, title: 'হাড় ভাঙা ও ফ্র্যাকচার (Fracture)', category: 'অর্থোপেডিক (হাড়)', docType: 'অর্থোপেডিক সার্জন', steps: ['ভাঙা অঙ্গটি অনড় রাখতে স্কেল বা কার্ডবোর্ড দিয়ে বাঁধুন', 'বাইরে বের হওয়া হাড় ভেতরে ঢোকানোর চেষ্টা করবেন না', 'ফোলা কমাতে কাপড়ে বরফ জড়িয়ে লাগান', 'অঙ্গ না বাঁকিয়ে রোগীকে হাসপাতালে নিন'] },
+                { id: 6, title: 'গলায় খাবার বা বস্তু আটকানো (Choking)', category: 'জরুরি শ্বাসনালী', docType: 'ট্রমা বিশেষজ্ঞ', steps: ['ব্যক্তিকে সামনের দিকে কিছুটা ঝুঁকিয়ে দিন', 'পিঠের দুই কাঁধের মাঝে ৫ বার জোরে চাপড় দিন', 'নাভির ঠিক ওপরে পেটে ৫ বার ওপরের দিকে চাপ দিন (হেইমলিক)', 'বস্তুটি বের না হওয়া পর্যন্ত পুনরাবৃত্তি করুন'] },
+                { id: 7, title: 'মৃগীর খিঁচুনি (Seizure / Fits)', category: 'নিউরোলজি (মস্তিষ্ক)', docType: 'নিউরোলজিস্ট', steps: ['আশেপাশের ধারালো বস্তু সরিয়ে ফেলুন', 'মাথার নিচে নরম কাপড় বা বালিশ দিন', 'মুখে চামচ, চাবি বা কাপড় গুঁজে দেবেন না', 'খিঁচুনি থামার পর রোগীকে একপাশে কাত করে শুইয়ে দিন'] },
+                { id: 8, title: 'আগুনে পুড়ে যাওয়া (Severe Burn)', category: 'ট্রমা ও বার্ন', docType: 'বার্ন সার্জন', steps: ['পোড়া স্থানে ১৫-২০ মিনিট ধরে কলের ঠান্ডা জল ঢালুন', 'টুথপেস্ট, ঘি, মাখন বা বরফ লাগাবেন না', 'পরিষ্কার ও শুকনো কাপড় দিয়ে আলগা করে ঢেকে দিন', 'মুখমণ্ডল পুড়লে দ্রুত হাসপাতালে নিয়ে যান'] },
+                { id: 9, title: 'তীব্র রক্তপাত বন্ধ করা (Bleeding)', category: 'ট্রমা ও সার্জারি', docType: 'জেনারেল সার্জন', steps: ['পরিষ্কার কাপড় দিয়ে ক্ষতের ওপর একটানা শক্ত চাপ দিন', 'ভেজা কাপড় তুলবেন না, ওপরে আরও কাপড় রাখুন', '১০-১৫ মিনিট একটানা চেপে ধরে রাখুন', 'আহত অঙ্গটি হৃদপিণ্ডের চেয়ে উঁচুতে রাখুন'] },
+                { id: 10, title: 'সুগার কমে যাওয়া (হাইপোগ্লাইসেমিয়া)', category: 'এন্ডোক্রিনোলজি (সুগার)', docType: 'জেনারেল ফিজিশিয়ান', steps: ['ঘাম, কাঁপুনি ও মাথা ঘোরার লক্ষণ চিহ্নিত করুন', '১৫-২০ গ্রাম মিষ্টি শরবত, চিনি বা ফলের রস খাওয়ান', '১৫ মিনিট পর পুনরায় সুগার পরীক্ষা করুন', 'অচেতন হলে মুখে কিছু দেবেন না; ১০৮ কল করুন'] },
+                { id: 11, title: 'সাপে কাটা (Snake Bite)', category: 'টক্সিকোলজি (বিষ)', docType: 'ক্রিটিক্যাল কেয়ার বিশেষজ্ঞ', steps: ['রোগীকে শান্ত ও স্থির রাখুন যেন বিষ না ছড়ায়', 'আক্রান্ত অঙ্গ থেকে আংটি, ঘড়ি বা জুতো খুলে ফেলুন', 'কাটাছেঁড়া বা মুখ দিয়ে বিষ চোষা যাবে না', 'সরাসরি অ্যান্টি-ভেনম (ASV) থাকা হাসপাতালে যান'] },
+                { id: 12, title: 'মারাত্মক অ্যালার্জি (অ্যানাফিল্যাক্সিস)', category: 'ইমিউনোলজি (অ্যালার্জি)', docType: 'জরুরি চিকিৎসক', steps: ['ঠোঁট বা জিহ্বা ফোলা ও শ্বাসে বাঁশির মতো শব্দ বুঝুন', 'এপিপেন (EpiPen) থাকলে উরুর বাইরের দিকে দিন', 'রোগীকে শুইয়ে দিন এবং পা কিছুটা ওপরে তুলুন', '১০৮ অ্যাম্বুলেন্সে অবিলম্বে হাসপাতালে পাঠান'] }
+            ]
+        };
+
+        // --- 52 REAL HOSPITALS DATASET ---
+        const MASTER_52_HOSPITALS = [
+            { name: "Sharda Care & Super Speciality Hospital", offset: [0.003, 0.002], address: "Plot 32-34, Knowledge Park III", spec: "Trauma & Multispeciality", beds: 900, icu: 140, opd: 250, phone: "+91 120 232 9999", doctors: [{ name: "Dr. Deepankar Vatsa", role: "Chief Cardiologist (Heart)", fee: 800 }, { name: "Dr. Rakesh Mattoo", role: "Senior Orthopedic (Bone)", fee: 750 }] },
+            { name: "GIMS (Government Institute of Medical Sciences)", offset: [0.011, -0.006], address: "Kasna Road, Greater Noida", spec: "Emergency & Level-1 Trauma", beds: 500, icu: 85, opd: 50, phone: "+91 120 234 1738", doctors: [{ name: "Dr. R.K. Gupta", role: "Emergency Medicine Specialist", fee: 50 }, { name: "Dr. Saurabh Sharma", role: "Orthopedic & Trauma Surgeon", fee: 50 }] },
+            { name: "Kailash Hospital & Neuro Institute", offset: [0.018, 0.012], address: "23, Knowledge Park II / Institutional Area", spec: "Neuro & Cardiac Sciences", beds: 350, icu: 60, opd: 600, phone: "+91 120 232 7799", doctors: [{ name: "Dr. Viresh Mahajan", role: "Cardiology Specialist (Heart)", fee: 900 }, { name: "Dr. Anuj Jain", role: "Joint & Spine Surgeon (Bone)", fee: 850 }] },
+            { name: "Yatharth Super Speciality Hospital & Trauma", offset: [0.024, -0.016], address: "Plot 1, Omega 1, Greater Noida", spec: "Cardiology & Pulmonology", beds: 400, icu: 112, opd: 650, phone: "+91 120 239 8888", doctors: [{ name: "Dr. Sushil Shukla", role: "Interventional Cardiologist (Heart)", fee: 1000 }, { name: "Dr. Amit Nath Misra", role: "Head of Orthopaedics & Joints", fee: 950 }] },
+            { name: "Navin Hospital & Critical Care Center", offset: [0.030, 0.018], address: "Pocket F, Sector Alpha II, Greater Noida", spec: "Orthopedic & Joint Surgery", beds: 120, icu: 28, opd: 450, phone: "+91 99996 25102", doctors: [{ name: "Dr. Sujeet Narain", role: "Senior Cardiologist (Heart)", fee: 700 }, { name: "Dr. Chittaranjan Mishra", role: "Senior Orthopedic Surgeon (Bone)", fee: 650 }] },
+            { name: "Bakson Multi-Speciality Hospital", offset: [0.035, -0.022], address: "Plot 36B, Knowledge Park I", spec: "Internal Medicine & Critical Care", beds: 100, icu: 22, opd: 350, phone: "+91 120 232 3000", doctors: [{ name: "Dr. K.K. Sharma", role: "Cardiologist & Physician", fee: 600 }, { name: "Dr. Vivek Asthana", role: "Consultant Orthopedist (Bone)", fee: 550 }] },
+            { name: "Promex Hospital & Trauma Center", offset: [0.041, 0.026], address: "Commercial Belt, Alpha 1, Greater Noida", spec: "Orthopedics & Fracture Center", beds: 80, icu: 18, opd: 400, phone: "+91 120 232 1001", doctors: [{ name: "Dr. P.K. Tyagi", role: "Joint Replacement Surgeon (Bone)", fee: 600 }, { name: "Dr. Alok Verma", role: "Cardiology Consultant", fee: 650 }] },
+            { name: "Prakash Hospital Emergency Wing", offset: [0.048, -0.032], address: "Near Pari Chowk, Greater Noida", spec: "Trauma & Fracture Unit", beds: 95, icu: 20, opd: 450, phone: "+91 120 232 4455", doctors: [{ name: "Dr. V.S. Chauhan", role: "Orthopedic Trauma Surgeon (Bone)", fee: 600 }, { name: "Dr. Manish Roy", role: "Cardiologist", fee: 700 }] },
+            { name: "Surabhi Hospital & Heart Unit", offset: [0.055, 0.038], address: "Surajpur Site 4, Greater Noida", spec: "Cardiology & Diabetology", beds: 85, icu: 18, opd: 400, phone: "+91 120 256 0001", doctors: [{ name: "Dr. Sanjeev Kaul", role: "Cardiology Specialist (Heart)", fee: 650 }, { name: "Dr. Naresh Goel", role: "Orthopedic Specialist", fee: 550 }] },
+            { name: "Ujjwal Astha Hospital", offset: [0.062, -0.041], address: "Near Surajpur Chowk, Greater Noida", spec: "General Medicine & Trauma", beds: 70, icu: 15, opd: 300, phone: "+91 120 256 1234", doctors: [{ name: "Dr. Vivek Mittal", role: "Physician & Heart Care", fee: 500 }, { name: "Dr. Sunil Yadav", role: "Bone & Joint Surgeon", fee: 450 }] },
+            { name: "JR Hospital & Laparoscopic Wing", offset: [0.068, 0.045], address: "B-Block, Sector Beta I, Greater Noida", spec: "Emergency Surgery & ICU", beds: 75, icu: 16, opd: 400, phone: "+91 120 232 8881", doctors: [{ name: "Dr. J.R. Singh", role: "Trauma & Orthopedic Surgeon", fee: 550 }, { name: "Dr. S.P. Sen", role: "Cardiology Physician", fee: 600 }] },
+            { name: "Astha Hospital & Maternity Center", offset: [0.075, -0.050], address: "NH-05, Sector Alpha II, Greater Noida", spec: "Maternity & General Medicine", beds: 65, icu: 14, opd: 350, phone: "+91 120 232 6677", doctors: [{ name: "Dr. Neha Asthana", role: "General Specialist", fee: 450 }, { name: "Dr. Arvind Kumar", role: "Bone & Fracture Consultant", fee: 500 }] },
+            { name: "Green City Hospital", offset: [0.082, 0.054], address: "NH 17, Delta I, Greater Noida", spec: "General Surgery & Trauma", beds: 60, icu: 12, opd: 350, phone: "+91 120 232 5544", doctors: [{ name: "Dr. Rajeev Bansal", role: "Consultant Orthopedist (Bone)", fee: 500 }, { name: "Dr. Ajay Pathak", role: "Cardiology Consultant", fee: 550 }] },
+            { name: "Sahdeo Hospital", offset: [0.089, -0.058], address: "Sector Omega 1, Greater Noida", spec: "General Medicine & Ortho", beds: 55, icu: 12, opd: 300, phone: "+91 120 239 1212", doctors: [{ name: "Dr. Sahdeo Prasad", role: "Orthopedic Surgeon (Bone)", fee: 450 }, { name: "Dr. Manoj Das", role: "Heart & Chest Physician", fee: 500 }] },
+            { name: "Kumar Hospital & Critical Care", offset: [0.096, 0.062], address: "G-Block, Sector Beta II, Greater Noida", spec: "Multi-Speciality Care", beds: 70, icu: 15, opd: 400, phone: "+91 120 232 9090", doctors: [{ name: "Dr. Ajay Kumar", role: "Cardiologist (Heart)", fee: 600 }, { name: "Dr. Vinay Singh", role: "Bone Specialist", fee: 550 }] },
+            { name: "Jaypee Hospital", offset: [0.108, -0.072], address: "Sector 128, Noida-Gr. Noida Expressway", spec: "Cardiac Sciences & Organ Transplant", beds: 504, icu: 150, opd: 850, phone: "+91 120 412 2222", doctors: [{ name: "Dr. Manoj Luthra", role: "Director Cardiac Surgery (Heart)", fee: 1200 }, { name: "Dr. Gaurav Rathore", role: "Director Orthopedics (Bone)", fee: 1100 }] },
+            { name: "Felix Hospital & Neonatal ICU", offset: [0.116, 0.078], address: "NH-01, Sector 137, Noida Expressway", spec: "Cardiology, ICU & Pediatrics", beds: 200, icu: 50, opd: 650, phone: "+91 120 398 8888", doctors: [{ name: "Dr. D.K. Gupta", role: "Interventional Cardiologist (Heart)", fee: 900 }, { name: "Dr. Ankit Varshney", role: "Orthopedic & Spine Surgeon", fee: 850 }] },
+            { name: "Yatharth Hospital Sector 110", offset: [0.125, -0.084], address: "Sector 110, Noida Expressway", spec: "Pulmonology & Cardiology", beds: 250, icu: 65, opd: 700, phone: "+91 120 246 8888", doctors: [{ name: "Dr. Rahul Dev Gupta", role: "Senior Cardiologist (Heart)", fee: 950 }, { name: "Dr. Alok Pandey", role: "Orthopedic Joint Surgeon", fee: 900 }] },
+            { name: "Kashvi Multi Speciality Centre", offset: [0.133, 0.088], address: "Plot 85, Ek Murti, Gr. Noida West", spec: "Emergency & General Surgery", beds: 90, icu: 20, opd: 450, phone: "+91 98112 34567", doctors: [{ name: "Dr. Kashvi Singh", role: "Cardiology Consultant", fee: 600 }, { name: "Dr. Hemant Joshi", role: "Orthopedic Specialist (Bone)", fee: 600 }] },
+            { name: "Sarvodaya Hospital", offset: [0.141, -0.092], address: "Plot 8, Sector 16C, Gaur City 2", spec: "Cardiac & Neuro Trauma", beds: 300, icu: 75, opd: 750, phone: "+91 120 500 0000", doctors: [{ name: "Dr. L.K. Jha", role: "Senior Cardiologist (Heart)", fee: 1000 }, { name: "Dr. Sujoy Bhattacharjee", role: "Robotic Joint Replacement", fee: 1000 }] },
+            { name: "NUmed Hospital & Critical Care", offset: [0.149, 0.098], address: "Plot 12, Sector 16C, Greater Noida West", spec: "Cardiology & ICU", beds: 150, icu: 40, opd: 550, phone: "+91 120 681 2345", doctors: [{ name: "Dr. Sujit Ray", role: "Cardiologist (Heart Specialist)", fee: 800 }, { name: "Dr. Deepak Sharma", role: "Orthopedic & Fracture Surgeon", fee: 750 }] },
+            { name: "LYF Hospital", offset: [0.156, -0.102], address: "GC-4, Gaur City, Greater Noida West", spec: "Emergency & Multispeciality", beds: 80, icu: 18, opd: 450, phone: "+91 120 488 9900", doctors: [{ name: "Dr. Amit Roy", role: "General Physician & Cardiology", fee: 600 }, { name: "Dr. Rajesh Rawat", role: "Bone & Joint Consultant", fee: 550 }] },
+            { name: "Arokia Hospital", offset: [0.163, 0.108], address: "Bisrakh Road, Greater Noida West", spec: "General Surgery & Trauma", beds: 65, icu: 14, opd: 400, phone: "+91 98101 22334", doctors: [{ name: "Dr. Charles Arokia", role: "Orthopedic Surgeon (Bone)", fee: 500 }, { name: "Dr. S. K. Jain", role: "Cardiology Physician", fee: 550 }] },
+            { name: "NIMMS Multi Speciality Hospital", offset: [0.170, -0.114], address: "Haldoni Bisrakh Road, Kuleshra", spec: "Trauma & General Medicine", beds: 85, icu: 18, opd: 350, phone: "+91 120 289 7711", doctors: [{ name: "Dr. M.N. Khan", role: "Trauma & Bone Specialist", fee: 450 }, { name: "Dr. R.P. Gautam", role: "Chest & Heart Physician", fee: 500 }] },
+            { name: "Motherhood Hospital", offset: [0.178, 0.120], address: "Sector 48, Noida", spec: "Pediatric ICU & Maternity", beds: 110, icu: 28, opd: 800, phone: "+91 120 422 1100", doctors: [{ name: "Dr. Vandana Sethi", role: "Pediatric Cardiac Consultant", fee: 900 }, { name: "Dr. Neeraj Goel", role: "Pediatric Orthopedic Surgeon", fee: 850 }] },
+            { name: "Neo Hospital", offset: [0.185, -0.126], address: "D-170A, Sector 50, Noida", spec: "Cardiology & Critical Care", beds: 150, icu: 45, opd: 650, phone: "+91 120 488 0000", doctors: [{ name: "Dr. Ajay Kaul", role: "Senior Cardiac Surgeon (Heart)", fee: 950 }, { name: "Dr. Sanjeev Vashisht", role: "Orthopedic & Joint Surgeon", fee: 850 }] },
+            { name: "NMC Hospital (Noida Medicare Centre)", offset: [0.192, 0.132], address: "16C, Block E, Sector 30, Noida", spec: "Multispeciality & Heart Center", beds: 130, icu: 35, opd: 600, phone: "+91 120 245 4545", doctors: [{ name: "Dr. Naveen Bhamri", role: "Interventional Cardiologist", fee: 850 }, { name: "Dr. Sandeep Kapoor", role: "Orthopedic Surgeon", fee: 800 }] },
+            { name: "Bhardwaj Hospital", offset: [0.198, -0.138], address: "NH-1, Sector 29, Noida", spec: "General Surgery & Trauma", beds: 100, icu: 24, opd: 500, phone: "+91 120 245 0111", doctors: [{ name: "Dr. V.A. Bhardwaj", role: "Chief Orthopedic (Bone)", fee: 700 }, { name: "Dr. S.K. Sharma", role: "Cardiology Consultant", fee: 750 }] },
+            { name: "Metro Hospital & Heart Institute", offset: [0.206, 0.144], address: "X-1, Sector 12, Noida", spec: "Apex Heart & Cardiac Care", beds: 317, icu: 110, opd: 800, phone: "+91 120 436 6666", doctors: [{ name: "Dr. Purshotam Lal", role: "Chairman - Interventional Cardiology", fee: 1500 }, { name: "Dr. Sameer Gupta", role: "Chief Cardiologist (Heart)", fee: 1200 }] },
+            { name: "Indo Gulf Hospital & Diagnostics", offset: [0.213, -0.150], address: "B-498A, Sector 19, Noida", spec: "Critical Care & General Surgery", beds: 80, icu: 18, opd: 450, phone: "+91 120 475 2300", doctors: [{ name: "Dr. S. Kumar", role: "Cardiology Physician (Heart)", fee: 650 }, { name: "Dr. Tariq Khan", role: "Orthopedic Consultant (Bone)", fee: 600 }] },
+            { name: "Vinayak Hospital", offset: [0.220, 0.155], address: "Sector 27, Atta Market, Noida", spec: "Emergency & Multispeciality", beds: 100, icu: 22, opd: 500, phone: "+91 120 254 4444", doctors: [{ name: "Dr. R.K. Srivastava", role: "Senior Cardiologist", fee: 750 }, { name: "Dr. Anurag Tyagi", role: "Orthopedic Surgeon (Bone)", fee: 700 }] },
+            { name: "Kailash Hospital & Heart Institute", offset: [0.228, -0.162], address: "H-33, Sector 27, Noida", spec: "Cardiac, Neuro & Trauma", beds: 325, icu: 75, opd: 750, phone: "+91 120 244 4444", doctors: [{ name: "Dr. D.S. Mathur", role: "Chief of Cardiology (Heart)", fee: 1000 }, { name: "Dr. Sushil Sharma", role: "Joint Replacement Specialist", fee: 950 }] },
+            { name: "Max Multi Speciality Hospital", offset: [0.235, 0.168], address: "A-364, Sector 19, Noida", spec: "Oncology & Critical Care", beds: 180, icu: 45, opd: 900, phone: "+91 120 662 9999", doctors: [{ name: "Dr. Roopa Salwan", role: "Cardiologist (Heart Specialist)", fee: 1200 }, { name: "Dr. B.S. Murthy", role: "Director Orthopedics (Bone)", fee: 1100 }] },
+            { name: "Fortis Hospital Sector 62", offset: [0.242, -0.174], address: "B-22, Sector 62, Noida", spec: "Neurology & Cardiac Sciences", beds: 290, icu: 85, opd: 950, phone: "+91 120 430 0222", doctors: [{ name: "Dr. Sanjeev Gera", role: "Director - Cardiology (Heart)", fee: 1300 }, { name: "Dr. Atul Mishra", role: "Director - Orthopedics (Bone)", fee: 1200 }] },
+            { name: "Surbhi Hospital Pvt Ltd", offset: [0.248, 0.180], address: "Golf Course Road, Sector 35, Noida", spec: "Orthopedics & Emergency Care", beds: 90, icu: 20, opd: 400, phone: "+91 120 250 8888", doctors: [{ name: "Dr. S.P. Gupta", role: "Orthopedic & Spine Surgeon", fee: 600 }, { name: "Dr. Ajay Aggarwal", role: "Cardiology Physician", fee: 650 }] },
+            { name: "ESI Model Hospital", offset: [0.255, -0.186], address: "Sector 24, Noida", spec: "Govt Subsidized Emergency Care", beds: 300, icu: 40, opd: 40, phone: "+91 120 241 1222", doctors: [{ name: "Dr. Rajeshwar Singh", role: "Chief Medical Officer (Cardio)", fee: 40 }, { name: "Dr. Vinod Kumar", role: "Orthopedic Surgeon (Bone)", fee: 40 }] },
+            { name: "Cloudnine Hospital", offset: [0.262, 0.192], address: "C-9, Sector 51, Noida", spec: "Maternity & Pediatric ICU", beds: 80, icu: 25, opd: 800, phone: "+91 99728 99728", doctors: [{ name: "Dr. Arvind Shenoi", role: "Pediatric Cardiologist", fee: 950 }, { name: "Dr. R.K. Mehra", role: "Pediatric Orthopedic", fee: 900 }] },
+            { name: "Sumitra Hospital", offset: [0.268, -0.198], address: "A-119A, Sector 35, Noida", spec: "Laparoscopy & ICU", beds: 100, icu: 24, opd: 500, phone: "+91 120 250 7777", doctors: [{ name: "Dr. V.K. Gupta", role: "Cardiology Consultant", fee: 700 }, { name: "Dr. Pramod Sharma", role: "Orthopedic Surgeon (Bone)", fee: 650 }] },
+            { name: "SJM Super Speciality Hospital", offset: [0.274, 0.204], address: "Plot 2, Chhijarsi, Sector 63, Noida", spec: "Trauma & Multispeciality", beds: 120, icu: 30, opd: 450, phone: "+91 120 240 5000", doctors: [{ name: "Dr. S.K. Jha", role: "Consultant Cardiologist", fee: 650 }, { name: "Dr. Anil Tomar", role: "Joint & Fracture Surgeon", fee: 600 }] },
+            { name: "Manas Hospital", offset: [0.280, -0.210], address: "A-93, Sector 34, Noida", spec: "Multispeciality Care", beds: 75, icu: 16, opd: 450, phone: "+91 120 250 5555", doctors: [{ name: "Dr. Manas Sharma", role: "General Surgeon & Trauma", fee: 550 }, { name: "Dr. R.K. Verma", role: "Cardiology Physician", fee: 600 }] },
+            { name: "Dipakshi Nursing & Maternity Home", offset: [0.285, 0.215], address: "C-53A, Sector 33, Noida", spec: "Maternity & Emergency", beds: 50, icu: 10, opd: 400, phone: "+91 120 250 4444", doctors: [{ name: "Dr. D.K. Sen", role: "General Physician", fee: 450 }, { name: "Dr. Ajay Roy", role: "Orthopedic Consultant", fee: 500 }] },
+            { name: "Dharamshila Narayana Super Speciality", offset: [0.290, -0.222], address: "Vasundhara Enclave, Near Noida Border", spec: "Oncology & Critical Care", beds: 350, icu: 80, opd: 850, phone: "+91 11 4306 6666", doctors: [{ name: "Dr. Anand Kumar", role: "Director Interventional Cardiology", fee: 1100 }, { name: "Dr. Rahul Kakroo", role: "Orthopedic & Joint Surgeon", fee: 1000 }] },
+            { name: "Apollo Emergency Hospital Sarita Vihar", offset: [0.294, -0.228], address: "Mathura Road, Sarita Vihar Corridor", spec: "Level-1 Apex Trauma Command", beds: 710, icu: 180, opd: 950, phone: "+91 11 2692 5858", doctors: [{ name: "Dr. N.N. Khanna", role: "Advisor - Interventional Cardiology", fee: 1500 }, { name: "Dr. Raju Vaishya", role: "Senior Orthopedic & Joint Surgeon", fee: 1400 }] },
+            { name: "Fortis Escorts Heart Institute", offset: [0.298, -0.234], address: "Okhla Road, New Friends Colony", spec: "National Apex Heart Institute", beds: 310, icu: 120, opd: 950, phone: "+91 11 4713 5000", doctors: [{ name: "Dr. Ashok Seth", role: "Chairman - Interventional Cardiology", fee: 2000 }, { name: "Dr. Aparna Jaswal", role: "Director - Cardiac Pacing & EP", fee: 1500 }] },
+            { name: "Holy Family Hospital", offset: [0.302, -0.240], address: "Okhla Road, Jamia Nagar", spec: "Multispeciality & Emergency ICU", beds: 345, icu: 65, opd: 450, phone: "+91 11 2684 5900", doctors: [{ name: "Dr. P.K. Dash", role: "Head of Cardiology (Heart)", fee: 750 }, { name: "Dr. Matthew Varghese", role: "Head of Orthopaedics (Bone)", fee: 700 }] },
+            { name: "National Heart Institute", offset: [0.306, -0.245], address: "Community Centre, East of Kailash", spec: "Cardiac Care & Bypass Surgery", beds: 100, icu: 35, opd: 800, phone: "+91 11 4660 0700", doctors: [{ name: "Dr. O.P. Yadava", role: "CEO & Chief Cardiac Surgeon", fee: 1400 }, { name: "Dr. Vinod Sharma", role: "Senior Interventional Cardiologist", fee: 1100 }] },
+            { name: "Bansal Hospital", offset: [0.310, -0.250], address: "Friends Colony West, New Friends Colony", spec: "Nephrology, Cardiology & ICU", beds: 110, icu: 30, opd: 650, phone: "+91 11 4658 3333", doctors: [{ name: "Dr. S.K. Bansal", role: "Consultant Cardiologist", fee: 850 }, { name: "Dr. Puneet Girdhar", role: "Orthopedic Spine Surgeon", fee: 850 }] },
+            { name: "Max Super Speciality Hospital Saket", offset: [0.315, -0.258], address: "1, 2 Press Enclave Marg, Saket", spec: "Tertiary Multi-Care & Trauma", beds: 530, icu: 145, opd: 950, phone: "+91 11 2651 5050", doctors: [{ name: "Dr. Balbir Singh", role: "Chairman - Cardiology (Heart)", fee: 1600 }, { name: "Dr. Harshavardhan Hegde", role: "Executive Director - Orthopedics", fee: 1500 }] },
+            { name: "Safdarjung Level-1 Apex Trauma Centre", offset: [0.320, -0.265], address: "Ring Road, Opposite AIIMS", spec: "National Emergency & Burn Center", beds: 1500, icu: 220, opd: 50, phone: "+91 11 2616 5060", doctors: [{ name: "Dr. V.K. Sharma", role: "Head of Orthopedics & Trauma (Bone)", fee: 50 }, { name: "Dr. Anoop Kohli", role: "Emergency Cardiac Consultant", fee: 50 }] },
+            { name: "AIIMS Apex Trauma Center", offset: [0.324, -0.270], address: "Ring Road, Safdarjung Enclave", spec: "National Apex Disaster & Trauma", beds: 2500, icu: 350, opd: 50, phone: "+91 11 2658 8500", doctors: [{ name: "Dr. Rakesh Garg", role: "Professor of Emergency & Critical Care", fee: 50 }, { name: "Dr. Kamran Farooque", role: "Chief of Orthopedics (Bone/Spine)", fee: 50 }] },
+            { name: "Moolchand Medcity", offset: [0.328, -0.276], address: "Lajpat Nagar III, Near Moolchand Metro", spec: "Cardiology, Ortho & Critical Care", beds: 300, icu: 70, opd: 850, phone: "+91 11 4200 0000", doctors: [{ name: "Dr. H.K. Chopra", role: "Senior Consultant Cardiologist", fee: 1200 }, { name: "Dr. Manoj Miglani", role: "Senior Orthopedic & Joint Surgeon", fee: 1100 }] },
+            { name: "Fortis C-Doc Hospital", offset: [0.332, -0.282], address: "B-16, Chirag Enclave, Greater Kailash", spec: "Diabetology, Heart & Metabolic ICU", beds: 75, icu: 20, opd: 900, phone: "+91 11 4910 1222", doctors: [{ name: "Dr. Anoop Misra", role: "Executive Chairman - Internal Medicine", fee: 1500 }, { name: "Dr. Ajay Sharma", role: "Consultant Cardiologist (Heart)", fee: 1100 }] }
+        ];
+
+        // --- SYNONYMS MAPPER ---
+        const SEARCH_SYNONYMS = {
+            dil: ["cardiology", "heart", "cardiac", "chest"],
+            heart: ["cardiology", "cardiac", "chest", "dil"],
+            cardio: ["cardiology", "cardiac", "heart"],
+            chest: ["cardiology", "cardiac", "pulmonology"],
+            seene: ["cardiology", "heart", "chest"],
+            haddi: ["orthopedic", "ortho", "bone", "fracture", "joint", "trauma"],
+            bone: ["orthopedic", "ortho", "fracture", "joint", "haddi"],
+            ortho: ["orthopedic", "bone", "fracture", "haddi"],
+            orthopedic: ["ortho", "bone", "fracture", "haddi"],
+            fracture: ["orthopedic", "bone", "trauma"],
+            saans: ["pulmonology", "respiratory", "asthma", "oxygen"],
+            asthma: ["pulmonology", "respiratory", "saans"],
+            dimag: ["neurology", "neuro", "brain", "stroke"],
+            brain: ["neurology", "neuro", "dimag"],
+            kidney: ["nephrology", "dialysis", "renal", "gurda"],
+            gurda: ["nephrology", "dialysis", "renal", "kidney"],
+            pet: ["gastroenterology", "stomach", "general medicine"],
+            stomach: ["gastroenterology", "general medicine"]
+        };
+
+        // --- APP STATE ---
+        let state = {
+            loading: true,
+            activeTab: 'home',
+            lang: 'en', // 'en', 'hi', 'hien', 'bn'
+            location: { lat: 28.4744, lng: 77.4897, name: "KCC Institute, Noida-Gre...", granted: false },
+            hospitals: [],
+            searchQuery: '',
+            viewingHospitalDetail: null
+        };
+        window.state = state;
+
+        let leafletMap = null;
+
+        function t() {
+            return I18N[state.lang] || I18N.en;
+        }
+
+        function calcDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + 
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        function generate50Hospitals(userLat, userLng) {
+            return MASTER_52_HOSPITALS.map((h, idx) => {
+                const hospLat = userLat + h.offset[0];
+                const hospLng = userLng + h.offset[1];
+                const dist = calcDistance(userLat, userLng, hospLat, hospLng);
+                
+                const bloodUnits = {
+                    "O+": Math.floor(Math.random() * 24) + 4,
+                    "O-": Math.floor(Math.random() * 8) + 1,
+                    "A+": Math.floor(Math.random() * 18) + 3,
+                    "A-": Math.floor(Math.random() * 6) + 1,
+                    "B+": Math.floor(Math.random() * 26) + 5,
+                    "B-": Math.floor(Math.random() * 7) + 1,
+                    "AB+": Math.floor(Math.random() * 12) + 2,
+                    "AB-": Math.floor(Math.random() * 5) + 1
+                };
+
+                const oxygenStock = Math.floor(Math.random() * 120) + 35;
+                const ventilators = Math.floor(h.icu * 0.6) || 12;
+
+                const searchBlob = `${h.name.toLowerCase()} ${h.spec.toLowerCase()} ${h.address.toLowerCase()} ${h.doctors.map(d => `${d.name.toLowerCase()} ${d.role.toLowerCase()}`).join(' ')}`;
+
+                return {
+                    id: `hosp-node-${idx+1}`,
+                    name: h.name,
+                    address: h.address,
+                    lat: hospLat,
+                    lng: hospLng,
+                    distance: dist,
+                    beds: h.beds,
+                    icuBeds: h.icu,
+                    cost: h.opd,
+                    specialty: h.spec,
+                    phone: h.phone,
+                    doctors: h.doctors,
+                    wait: Math.floor(Math.random() * 15) + 4,
+                    blood: bloodUnits,
+                    medicines: { "Oxygen Cylinders": oxygenStock },
+                    ventilators: ventilators,
+                    searchBlob: searchBlob
+                };
+            }).sort((a, b) => a.distance - b.distance);
+        }
+
+        window.setState = (updates, rerender = true) => {
+            state = { ...state, ...updates };
+            window.state = state;
+            if (rerender) render();
+        };
+
+        window.setLanguage = (lang) => {
+            window.setState({ lang });
+        };
+
+        window.triggerGPS = () => {
+            const locLabel = document.getElementById('user-location-text');
+            if (locLabel) locLabel.innerText = "Locating GPS...";
+
+            if (!("geolocation" in navigator)) {
+                fallbackLocation();
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    state.location = { lat: latitude, lng: longitude, name: "KCC Institute, Greater Noida", granted: true };
+                    state.hospitals = generate50Hospitals(latitude, longitude);
+                    setState({ loading: false });
+
+                    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=15`)
+                        .then(r => r.json())
+                        .then(d => {
+                            const place = d.address?.amenity || d.address?.suburb || d.address?.neighbourhood || d.address?.road || "KCC Institute";
+                            const city = d.address?.city || d.address?.city_district || "Greater Noida";
+                            state.location.name = `${place}, ${city}`;
+                            const label = document.getElementById('user-location-text');
+                            if (label) label.innerText = state.location.name;
+                        }).catch(() => {});
+
+                    if (state.activeTab === 'map' && leafletMap) {
+                        leafletMap.setView([latitude, longitude], 13);
+                    }
+                },
+                () => fallbackLocation(),
+                { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
+            );
+        };
+
+        function fallbackLocation() {
+            const lat = 28.4744, lng = 77.4897;
+            state.location = { lat, lng, name: "KCC Institute, Noida-Gre...", granted: false };
+            state.hospitals = generate50Hospitals(lat, lng);
+            setState({ loading: false });
+        }
+
+        window.onSearch = (query) => {
+            state.searchQuery = query;
+            renderHospitalCards();
+        };
+
+        function getFilteredHospitals() {
+            const raw = state.searchQuery.trim().toLowerCase();
+            const words = raw.split(/\s+/).filter(Boolean);
+            
+            let queryTokens = [...words];
+            words.forEach(w => {
+                if (SEARCH_SYNONYMS[w]) queryTokens.push(...SEARCH_SYNONYMS[w]);
+            });
+
+            return state.hospitals.filter(h => {
+                if (queryTokens.length > 0) {
+                    return queryTokens.some(tok => h.searchBlob.includes(tok));
+                }
+                return true;
+            });
+        }
+
+        function renderHospitalCards() {
+            const stack = document.getElementById('hospital-card-stack');
+            if (!stack) return;
+            const items = getFilteredHospitals();
+
+            const countBadge = document.getElementById('center-count-label');
+            if (countBadge) countBadge.innerText = `${items.length} ${t().centersFound}`;
+
+            if (items.length === 0) {
+                stack.innerHTML = `
+                    <div class="py-16 text-center text-slate-500">
+                        <i data-lucide="shield-alert" class="w-10 h-10 mx-auto stroke-[1.5] mb-2 opacity-40"></i>
+                        <p class="text-xs font-semibold uppercase tracking-wider">${t().noResults}</p>
+                    </div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            stack.innerHTML = items.map(h => `
+                <div onclick="window.setState({viewingHospitalDetail: '${h.id}'})" class="bg-slate-800/80 border border-slate-700/60 hover:border-slate-500/80 p-4 rounded-3xl active:scale-[0.98] transition-all cursor-pointer shadow-lg shadow-black/40 space-y-3">
+                    <div class="flex justify-between items-start">
+                        <div class="flex items-center gap-3">
+                            <div class="w-11 h-11 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-400 flex items-center justify-center shrink-0">
+                                <i data-lucide="cross" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-extrabold text-white leading-tight line-clamp-1">${h.name}</h3>
+                                <p class="text-[11px] font-semibold text-blue-400 mt-0.5 flex items-center gap-1.5">
+                                    <span class="bg-blue-500/20 px-1.5 py-0.5 rounded text-blue-300 font-bold">${h.distance < 1 ? (h.distance * 1000).toFixed(0) + ' m' : h.distance.toFixed(1) + ' km'}</span>
+                                    <span class="text-slate-600">•</span>
+                                    <span class="text-slate-400 truncate max-w-[140px]">${h.specialty}</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <span class="text-xs font-black text-emerald-400">₹${h.cost}</span>
+                            <span class="block text-[9px] font-bold text-slate-500 uppercase tracking-wider">${t().opdFee}</span>
+                        </div>
+                    </div>
+
+                    <!-- Doctors & Consultation Matrix -->
+                    <div class="bg-slate-900/70 border border-slate-700/40 rounded-2xl p-2.5 space-y-1.5">
+                        ${h.doctors.map(doc => `
+                            <div class="flex justify-between items-center text-[11px]">
+                                <div>
+                                    <span class="font-extrabold text-white">${doc.name}</span>
+                                    <span class="text-[10px] text-slate-400 block">${doc.role}</span>
+                                </div>
+                                <span class="font-black text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded-lg">₹${doc.fee}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <!-- Bed & ICU Stats -->
+                    <div class="grid grid-cols-3 gap-2 pt-1 border-t border-slate-700/40">
+                        <div class="bg-slate-900/80 rounded-xl p-2 text-center">
+                            <span class="text-xs font-extrabold text-slate-200">${h.beds}</span>
+                            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">${t().beds}</p>
+                        </div>
+                        <div class="bg-rose-950/30 border border-rose-900/40 rounded-xl p-2 text-center">
+                            <span class="text-xs font-extrabold text-rose-400">${h.icuBeds}</span>
+                            <p class="text-[9px] font-bold text-rose-500 uppercase tracking-wider mt-0.5">${t().icu}</p>
+                        </div>
+                        <div class="bg-cyan-950/30 border border-cyan-900/40 rounded-xl p-2 text-center">
+                            <span class="text-xs font-extrabold text-cyan-400">${h.wait}m</span>
+                            <p class="text-[9px] font-bold text-cyan-500 uppercase tracking-wider mt-0.5">${t().wait}</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        window.initLeafletMap = () => {
+            const mapContainer = document.getElementById('leaflet-map');
+            if (!mapContainer) return;
+            if (leafletMap) leafletMap.remove();
+
+            leafletMap = L.map('leaflet-map', { zoomControl: false }).setView([state.location.lat, state.location.lng], 12);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap'
+            }).addTo(leafletMap);
+
+            const userIcon = L.divIcon({
+                className: 'custom-user-marker',
+                html: `<div class="user-gps-pulse"></div>`,
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+            L.marker([state.location.lat, state.location.lng], { icon: userIcon }).addTo(leafletMap)
+                .bindPopup("<b style='color:#0f172a;'>You Are Here</b>").openPopup();
+
+            state.hospitals.forEach(h => {
+                const hospIcon = L.divIcon({
+                    className: 'custom-hosp-marker',
+                    html: `
+                        <div style="background:#ef4444; border:2px solid #ffffff; width:26px; height:26px; border-radius:8px; display:flex; align-items:center; justify-content:center; box-shadow: 0 4px 10px rgba(0,0,0,0.5); color:white; font-size:13px; font-weight:bold;">
+                            +
+                        </div>
+                    `,
+                    iconSize: [26, 26],
+                    iconAnchor: [13, 13]
+                });
+                const m = L.marker([h.lat, h.lng], { icon: hospIcon }).addTo(leafletMap);
+                m.on('click', () => {
+                    window.setState({ viewingHospitalDetail: h.id });
+                });
+            });
+        };
+
+        // --- VIEWS ---
+
+        // Header with clean Language Selector right beside GPS Lock Target
+        function renderHeader() {
+            return `
+                <header class="bg-slate-900 border-b border-slate-800 px-4 pt-safe pb-3.5 flex items-center justify-between sticky top-0 z-40">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-400 text-white flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                            <i data-lucide="zap" class="w-5 h-5 fill-white text-white"></i>
+                        </div>
+                        <div>
+                            <span class="text-[9px] font-black tracking-widest text-cyan-400 uppercase leading-none block">${t().liveGrid}</span>
+                            <p id="user-location-text" class="text-xs font-extrabold text-white tracking-tight truncate max-w-[130px] mt-0.5">
+                                ${state.location.name}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-2">
+                        <!-- 4-Language Switcher beside GPS -->
+                        <div class="flex items-center bg-slate-800/90 border border-slate-700/80 p-0.5 rounded-xl">
+                            ${[
+                                { id: 'en', label: 'EN' },
+                                { id: 'hi', label: 'HI' },
+                                { id: 'hien', label: 'HING' },
+                                { id: 'bn', label: 'BN' }
+                            ].map(l => `
+                                <button onclick="window.setLanguage('${l.id}')" class="px-1.5 py-1 rounded-lg text-[10px] font-black transition-all ${state.lang === l.id ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}">
+                                    ${l.label}
+                                </button>
+                            `).join('')}
+                        </div>
+
+                        <!-- GPS Lock Target -->
+                        <button onclick="window.triggerGPS()" class="w-10 h-10 rounded-xl bg-slate-800/90 border border-slate-700 text-cyan-400 hover:text-white flex items-center justify-center active:scale-90 transition-all shadow-md">
+                            <i data-lucide="locate-fixed" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </header>
+            `;
+        }
+
+        function renderUserHome() {
+            return `
+                <div class="flex-1 overflow-y-auto hide-scrollbar p-5 space-y-5 pb-36">
+                    
+                    <!-- Search Input Bar (No filter chips underneath) -->
+                    <div class="relative">
+                        <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
+                        <input 
+                            type="text" 
+                            id="query-input"
+                            oninput="window.onSearch(this.value)"
+                            placeholder="${t().searchPlaceholder}" 
+                            value="${state.searchQuery}"
+                            class="w-full bg-slate-800 border border-slate-700/80 text-white placeholder-slate-400 text-xs font-bold pl-12 pr-4 py-4 rounded-2xl focus:outline-none focus:border-blue-500 shadow-inner"
+                        />
+                    </div>
+
+                    <!-- National 108 Helpline Banner -->
+                    <div class="bg-gradient-to-r from-red-600 to-rose-700 p-5 rounded-3xl text-white flex items-center justify-between shadow-xl shadow-red-950/50">
+                        <div>
+                            <span class="text-[9px] font-black uppercase tracking-widest bg-red-800/60 px-2 py-0.5 rounded-md">${t().helplineTitle}</span>
+                            <h3 class="text-2xl font-black mt-1 leading-none tracking-tight">${t().call108}</h3>
+                            <p class="text-[10px] font-semibold text-red-100 mt-1">${t().helplineSub}</p>
+                        </div>
+                        <a href="tel:108" class="w-13 h-13 p-3.5 bg-white text-red-600 rounded-2xl flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+                            <i data-lucide="phone-call" class="w-6 h-6 fill-current"></i>
+                        </a>
+                    </div>
+
+                    <!-- List Header -->
+                    <div>
+                        <div class="flex justify-between items-center mb-3">
+                            <div class="flex items-center gap-2">
+                                <h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-400">${t().nearestUnits}</h2>
+                                <span class="text-[9px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">${t().ascendingOrder}</span>
+                            </div>
+                            <span id="center-count-label" class="text-xs font-bold text-blue-400">${state.hospitals.length} ${t().centersFound}</span>
+                        </div>
+                        <div id="hospital-card-stack" class="space-y-3.5">
+                            <!-- Populated with 50+ hospitals in ascending distance order -->
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderMapView() {
+            return `
+                <div class="flex-1 w-full h-full relative overflow-hidden pb-24">
+                    <div id="leaflet-map"></div>
+                    <div class="absolute bottom-28 left-4 right-4 z-[999] bg-slate-900/90 backdrop-blur-md p-3.5 rounded-2xl border border-slate-700 shadow-2xl flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                            <p class="text-xs font-extrabold text-white">0-30 km Radial Map (${state.hospitals.length} Centers)</p>
+                        </div>
+                        <button onclick="if(leafletMap) leafletMap.setView([state.location.lat, state.location.lng], 13)" class="text-[10px] font-bold bg-blue-600 text-white px-3 py-1.5 rounded-xl active:scale-95">Recenter</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderBloodView() {
+            return `
+                <div class="flex-1 overflow-y-auto hide-scrollbar p-5 space-y-4 pb-36">
+                    <div class="bg-slate-800/80 border border-slate-700 p-5 rounded-3xl">
+                        <h2 class="text-lg font-black text-white">${t().bloodBankTitle}</h2>
+                        <p class="text-xs text-slate-400 font-semibold mt-1">${t().bloodBankSub}</p>
+                    </div>
+                    ${state.hospitals.map(h => `
+                        <div class="bg-slate-800/60 border border-slate-700/40 p-4 rounded-3xl space-y-3">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h4 class="text-sm font-extrabold text-white">${h.name}</h4>
+                                    <p class="text-[10px] font-bold text-blue-400">${h.distance < 1 ? (h.distance * 1000).toFixed(0) + ' m' : h.distance.toFixed(1) + ' km'} away</p>
+                                </div>
+                                <a href="https://www.google.com/maps/dir/?api=1&destination=${h.lat},${h.lng}" target="_blank" class="text-[10px] font-bold bg-slate-700 text-slate-200 px-3 py-1.5 rounded-xl">${t().directions}</a>
+                            </div>
+                            <div class="grid grid-cols-4 gap-2">
+                                ${Object.entries(h.blood).map(([type, units]) => `
+                                    <div class="p-2 bg-slate-900/70 rounded-xl text-center border border-slate-800">
+                                        <span class="text-xs font-black text-white">${type}</span>
+                                        <p class="text-[10px] font-extrabold ${units > 2 ? 'text-emerald-400' : 'text-rose-500'} mt-0.5">${units}u</p>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // --- 4TH TAB: 12 COMMON CRITICAL DISEASES & EMERGENCY CARE IN 4 LANGUAGES ---
+        function renderDiseasesView() {
+            const list = COMMON_12_DISEASES[state.lang] || COMMON_12_DISEASES.en;
+            return `
+                <div class="flex-1 overflow-y-auto hide-scrollbar p-5 space-y-4 pb-36">
+                    <div class="bg-slate-800/80 border border-slate-700 p-5 rounded-3xl">
+                        <span class="text-[10px] font-black uppercase tracking-widest text-emerald-400">12 Critical Conditions</span>
+                        <h2 class="text-xl font-black text-white mt-1">${t().diseases} & Clinical First Aid</h2>
+                        <p class="text-xs text-slate-400 font-semibold mt-1">Actions to take immediately before hospital admission</p>
+                    </div>
+
+                    ${list.map(d => `
+                        <div class="bg-slate-800/60 border border-slate-700/40 p-5 rounded-3xl space-y-3">
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 bg-rose-500/20 border border-rose-500/30 text-rose-400 rounded-xl flex items-center justify-center shrink-0">
+                                        <i data-lucide="shield-alert" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <span class="text-[9px] font-black uppercase text-slate-400 tracking-wider">${d.category}</span>
+                                        <h3 class="font-extrabold text-white text-sm leading-tight">${d.title}</h3>
+                                    </div>
+                                </div>
+                                <span class="text-[9px] font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-800/40 px-2 py-0.5 rounded-md shrink-0">
+                                    ${d.docType}
+                                </span>
+                            </div>
+
+                            <div class="space-y-1.5 pt-1">
+                                ${d.steps.map((s, idx) => `
+                                    <div class="flex gap-2.5 items-start text-xs text-slate-300">
+                                        <span class="w-4 h-4 rounded-full bg-slate-700 text-slate-300 font-black text-[9px] flex items-center justify-center shrink-0 mt-0.5">${idx+1}</span>
+                                        <p class="leading-relaxed">${s}</p>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // --- 5-OPTION BOTTOM NAVIGATION (Diseases in 4th position) ---
+        function renderNavbar() {
+            return `
+                <nav class="absolute bottom-0 w-full bg-slate-900/95 backdrop-blur-2xl border-t border-slate-800 flex justify-around items-center p-3 pb-safe z-40">
+                    <button onclick="window.setState({activeTab: 'home'})" class="p-2 flex flex-col items-center gap-1 ${state.activeTab === 'home' ? 'text-blue-500 scale-105' : 'text-slate-500'}">
+                        <i data-lucide="home" class="w-5 h-5"></i>
+                        <span class="text-[9px] font-extrabold">${t().home}</span>
+                    </button>
+
+                    <button onclick="window.setState({activeTab: 'map'})" class="p-2 flex flex-col items-center gap-1 ${state.activeTab === 'map' ? 'text-blue-500 scale-105' : 'text-slate-500'}">
+                        <i data-lucide="map" class="w-5 h-5"></i>
+                        <span class="text-[9px] font-extrabold">${t().map}</span>
+                    </button>
+
+                    <!-- Central SOS Action -->
+                    <div onclick="window.setState({activeTab: 'home'})" class="w-14 h-14 -mt-8 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-600/40 ring-4 ring-slate-900 active:scale-90 transition-transform cursor-pointer">
+                        <i data-lucide="zap" class="w-6 h-6 fill-white"></i>
+                    </div>
+
+                    <!-- 4th Option: 12 Common Diseases -->
+                    <button onclick="window.setState({activeTab: 'diseases'})" class="p-2 flex flex-col items-center gap-1 ${state.activeTab === 'diseases' ? 'text-blue-500 scale-105' : 'text-slate-500'}">
+                        <i data-lucide="activity" class="w-5 h-5"></i>
+                        <span class="text-[9px] font-extrabold">${t().diseases}</span>
+                    </button>
+
+                    <!-- 5th Option: Blood -->
+                    <button onclick="window.setState({activeTab: 'blood'})" class="p-2 flex flex-col items-center gap-1 ${state.activeTab === 'blood' ? 'text-blue-500 scale-105' : 'text-slate-500'}">
+                        <i data-lucide="droplet" class="w-5 h-5"></i>
+                        <span class="text-[9px] font-extrabold">${t().blood}</span>
+                    </button>
+                </nav>
+            `;
+        }
+
+        function renderDetailModal() {
+            if (!state.viewingHospitalDetail) return '';
+            const h = state.hospitals.find(x => x.id === state.viewingHospitalDetail);
+            if (!h) return '';
+
+            return `
+                <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4" onclick="window.setState({viewingHospitalDetail: null})">
+                    <div class="bg-slate-900 border border-slate-700/80 w-full sm:max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] max-h-[90vh] flex flex-col overflow-hidden shadow-2xl" onclick="event.stopPropagation()">
+                        <div class="p-5 border-b border-slate-800 bg-slate-800/50 flex justify-between items-start">
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[9px] font-black uppercase text-emerald-400 tracking-wider">Live Verified Hospital</span>
+                                    <span class="text-[9px] font-extrabold text-blue-400 bg-blue-950/90 border border-blue-800/50 px-2 py-0.5 rounded-full">
+                                        ${h.distance < 1 ? (h.distance * 1000).toFixed(0) + ' m' : h.distance.toFixed(1) + ' km'} away
+                                    </span>
+                                </div>
+                                <h2 class="text-xl font-black text-white leading-tight">${h.name}</h2>
+                                <p class="text-xs text-slate-400">${h.address}</p>
+                            </div>
+                            <button onclick="window.setState({viewingHospitalDetail: null})" class="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white">
+                                <i data-lucide="x" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+
+                        <div class="p-5 overflow-y-auto hide-scrollbar space-y-4">
+                            <!-- Beds & ICU -->
+                            <div class="grid grid-cols-3 gap-2.5">
+                                <div class="bg-slate-800/90 p-3 rounded-2xl text-center border border-slate-700/50">
+                                    <span class="text-xl font-black text-blue-400">${h.beds}</span>
+                                    <p class="text-[9px] font-bold text-slate-400 uppercase mt-0.5">${t().beds}</p>
+                                </div>
+                                <div class="bg-rose-950/40 p-3 rounded-2xl text-center border border-rose-900/50">
+                                    <span class="text-xl font-black text-rose-400">${h.icuBeds}</span>
+                                    <p class="text-[9px] font-bold text-rose-400 uppercase mt-0.5">${t().icu}</p>
+                                </div>
+                                <div class="bg-emerald-950/40 p-3 rounded-2xl text-center border border-emerald-900/50">
+                                    <span class="text-xl font-black text-emerald-400">₹${h.cost}</span>
+                                    <p class="text-[9px] font-bold text-emerald-400 uppercase mt-0.5">${t().opdFee}</p>
+                                </div>
+                            </div>
+
+                            <!-- Available Doctors and Fees -->
+                            <div class="bg-slate-800/60 border border-slate-700/40 p-4 rounded-2xl space-y-2.5">
+                                <h4 class="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Available Specialists & Pricing</h4>
+                                <div class="space-y-2 pt-1">
+                                    ${h.doctors.map(d => `
+                                        <div class="flex justify-between items-center bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                                            <div>
+                                                <p class="text-xs font-black text-white">${d.name}</p>
+                                                <p class="text-[10px] text-slate-400">${d.role}</p>
+                                            </div>
+                                            <span class="text-xs font-black text-emerald-400">₹${d.fee}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            <!-- Oxygen & Ventilators -->
+                            <div class="bg-slate-800/60 border border-slate-700/40 p-4 rounded-2xl space-y-2">
+                                <h4 class="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Life Support Inventory</h4>
+                                <div class="grid grid-cols-2 gap-2 pt-1 text-center">
+                                    <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                                        <span class="text-sm font-black text-cyan-400">${h.medicines["Oxygen Cylinders"]}</span>
+                                        <p class="text-[8px] font-bold text-slate-400 uppercase mt-0.5">O2 Cylinders</p>
+                                    </div>
+                                    <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                                        <span class="text-sm font-black text-teal-400">${h.ventilators}</span>
+                                        <p class="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Ventilators</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Complete 8-Group Blood Bank Stock -->
+                            <div class="bg-slate-800/60 border border-slate-700/40 p-4 rounded-2xl space-y-2">
+                                <h4 class="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Available Blood Units (All 8 Groups)</h4>
+                                <div class="grid grid-cols-4 gap-2">
+                                    ${Object.entries(h.blood).map(([type, units]) => `
+                                        <div class="bg-slate-900/90 p-2 rounded-xl text-center border border-slate-800">
+                                            <span class="text-xs font-black text-white">${type}</span>
+                                            <p class="text-[10px] font-extrabold ${units > 2 ? 'text-emerald-400' : 'text-rose-500'} mt-0.5">${units}u</p>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="pt-2 pb-safe space-y-2">
+                                <div class="flex gap-2">
+                                    <a href="tel:108" class="flex-1 py-3.5 rounded-2xl bg-rose-600 text-white font-extrabold text-xs uppercase tracking-wider text-center flex items-center justify-center gap-1.5 shadow-lg shadow-rose-950/50">
+                                        <i data-lucide="phone-call" class="w-4 h-4"></i> ${t().callBtn}
+                                    </a>
+                                    <a href="tel:${h.phone}" class="flex-1 py-3.5 rounded-2xl bg-slate-800 border border-slate-700 text-white font-extrabold text-xs uppercase tracking-wider text-center flex items-center justify-center gap-1.5">
+                                        <i data-lucide="phone" class="w-4 h-4 text-emerald-400"></i> Hospital ER
+                                    </a>
+                                </div>
+                                <a href="https://www.google.com/maps/dir/?api=1&destination=${h.lat},${h.lng}" target="_blank" class="w-full py-4 rounded-2xl bg-blue-600 text-white font-black text-xs uppercase tracking-widest text-center flex items-center justify-center gap-2 shadow-xl shadow-blue-950/60">
+                                    <i data-lucide="navigation" class="w-4 h-4"></i> ${t().routeBtn}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- RENDER ENGINE ---
+        function render() {
+            const container = document.getElementById('app-container');
+            if (!container) return;
+
+            if (state.loading) {
+                container.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center bg-slate-950 p-6 text-center">
+                        <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-400 flex items-center justify-center text-white shadow-xl shadow-cyan-500/30 animate-pulse mb-3">
+                            <i data-lucide="zap" class="w-7 h-7 fill-white"></i>
+                        </div>
+                        <h1 class="text-xs font-black text-white tracking-widest uppercase">Connecting Emergency Grid (50+ Centers)...</h1>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            let tabContent = '';
+            if (state.activeTab === 'home') tabContent = renderUserHome();
+            else if (state.activeTab === 'map') tabContent = renderMapView();
+            else if (state.activeTab === 'diseases') tabContent = renderDiseasesView();
+            else if (state.activeTab === 'blood') tabContent = renderBloodView();
+
+            container.innerHTML = `
+                ${renderHeader()}
+                ${tabContent}
+                ${renderNavbar()}
+                ${renderDetailModal()}
+            `;
+
+            if (state.activeTab === 'home') {
+                renderHospitalCards();
+            } else if (state.activeTab === 'map') {
+                setTimeout(() => initLeafletMap(), 60);
+            }
+
+            lucide.createIcons();
+        }
+
+        render();
+        window.triggerGPS();
+    </script>
 </body>
 </html>
