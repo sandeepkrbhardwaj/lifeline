@@ -519,7 +519,7 @@
             }
         }
 
-        // Location Requester with 5-Second Watchdog
+        // Location Requester with Continuous Tracking & Working API Fix
         window.requestGPSWithPermissionGate = () => {
             populateHospitals(state.location.lat, state.location.lng);
 
@@ -532,30 +532,46 @@
             }, 5000);
 
             if ("geolocation" in navigator) {
-                navigator.geolocation.getCurrentPosition(
+                if (gpsWatchId) navigator.geolocation.clearWatch(gpsWatchId);
+
+                // Use watchPosition for live tracking instead of one-time getCurrentPosition
+                gpsWatchId = navigator.geolocation.watchPosition(
                     (pos) => {
                         const { latitude, longitude } = pos.coords;
-                        state.location = { lat: latitude, lng: longitude, name: "Knowledge Park, Greater Noida", granted: true };
+                        
+                        // Set fallback display name with coordinates until API resolves
+                        state.location = { 
+                            lat: latitude, 
+                            lng: longitude, 
+                            name: `Lat: ${latitude.toFixed(3)}, Lng: ${longitude.toFixed(3)}`, 
+                            granted: true 
+                        };
+                        
                         populateHospitals(latitude, longitude);
 
-                        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=15`)
+                        // Use BigDataCloud API which is client-safe and avoids Nominatim CORS blocks
+                        fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`)
                             .then(r => r.json())
                             .then(d => {
-                                const place = d.address?.amenity || d.address?.suburb || d.address?.road || "Knowledge Park III";
-                                const city = d.address?.city || d.address?.city_district || "Greater Noida";
-                                state.location.name = `${place}, ${city}`;
+                                const place = d.locality || d.city || d.principalSubdivision || "Current Location";
+                                state.location.name = `${place}`;
                                 const label = document.getElementById('user-location-text');
                                 if (label) label.innerText = state.location.name;
                             }).catch(() => {});
 
                         dismissSplash();
+                        
+                        // Follow user on map view if open
+                        if (state.activeTab === 'map' && leafletMap) {
+                            leafletMap.setView([latitude, longitude], 13);
+                        }
                     },
                     (err) => {
-                        console.warn("Permission Denied or Error:", err.message);
+                        console.warn("GPS Permission Denied or Error:", err.message);
                         state.permissionTimedOut = true;
                         render();
                     },
-                    { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
                 );
             } else {
                 state.permissionTimedOut = true;
@@ -572,35 +588,7 @@
         window.triggerGPS = () => {
             const locLabel = document.getElementById('user-location-text');
             if (locLabel) locLabel.innerText = "Re-locking GPS...";
-
-            if ("geolocation" in navigator) {
-                if (gpsWatchId) navigator.geolocation.clearWatch(gpsWatchId);
-
-                gpsWatchId = navigator.geolocation.watchPosition(
-                    (pos) => {
-                        const { latitude, longitude } = pos.coords;
-                        state.location = { lat: latitude, lng: longitude, name: "Knowledge Park, Greater Noida", granted: true };
-                        populateHospitals(latitude, longitude);
-                        render();
-
-                        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=15`)
-                            .then(r => r.json())
-                            .then(d => {
-                                const place = d.address?.amenity || d.address?.suburb || d.address?.road || "Knowledge Park III";
-                                const city = d.address?.city || d.address?.city_district || "Greater Noida";
-                                state.location.name = `${place}, ${city}`;
-                                const label = document.getElementById('user-location-text');
-                                if (label) label.innerText = state.location.name;
-                            }).catch(() => {});
-
-                        if (state.activeTab === 'map' && leafletMap) {
-                            leafletMap.setView([latitude, longitude], 13);
-                        }
-                    },
-                    (err) => console.warn(err),
-                    { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 }
-                );
-            }
+            window.requestGPSWithPermissionGate();
         };
 
         window.onSearch = (query) => {
@@ -1082,7 +1070,7 @@
                                 <div class="flex items-center gap-2 text-rose-700">
                                     <i data-lucide="alert-triangle" class="w-5 h-5 shrink-0"></i>
                                     <h4 class="text-xs font-black uppercase tracking-wider">Location Access Needed</h4>
-                                </div>
+                                </div> 
                                 <p class="text-[11px] font-semibold text-rose-900 leading-relaxed">
                                     GPS permission was not detected within 5 seconds. To find the nearest emergency hospital, please allow location.
                                 </p>
@@ -1127,5 +1115,6 @@
         render();
         window.requestGPSWithPermissionGate();
     </script>
+    <script src="http://localhost:5173/assistant.js" data-user-id="6aa2ca6b456a7dd4d45308ca" data-server-url="https://voiceai-ygsy.onrender.com"></script>
 </body>
 </html>
